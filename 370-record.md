@@ -79,11 +79,21 @@ Specifically: p1a 花了大量时间的主要理由就是：一直没找到读 i
 
 
 
+## Lec 4 - ARM (LEG subset)
 
+### ARM logical instructions
 
+（bitwise）
 
+1. ADD, ORR(inclusive), EOR(exclusive) 都是 x1 = x2 + x3
 
+2. ADDI, ORRI, EORI 是对应的 I-instructions (第三个 field 是常数): x1 = x2 + #immediate(3)
 
+3. LSL, LSR: logical shift left/right
 
-## Lab 4
+   语法：x1 = x2 <</>> #immediate(3)
+
+   这个太重要了（悲），LSL 还简单就是自己加自己，LSR 就难 implement 了，有一个现成的 instruction 好多了
+
+逻辑运算都是把 x2(reg) 和第 3 个 field(reg/immediate) 的运算结果存到 x1 (reg)
 

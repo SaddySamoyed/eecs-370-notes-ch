@@ -97,3 +97,23 @@ Specifically: p1a 花了大量时间的主要理由就是：一直没找到读 i
 
 逻辑运算都是把 x2(reg) 和第 3 个 field(reg/immediate) 的运算结果存到 x1 (reg)
 
+### ARM memory instructions
+
+我们的便宜 ISA IC2K 的 addressing 方式是 by word (4 bytes in IC2K)，意思是
+
+word 的大小就是一个 instruction 的大小，也就是 ISA 的数据宽度（
+
+32-bit ISA 表示 
+
+1. 一个 instruction 宽度为 32 bits (4 bytes); 
+
+2. 寻址范围是第 0 - 2^32 个 bytes (0x00000000 - 0xFFFFFFFF)
+
+   （**Note: 这里这个 8 位 hex 数里面的 1 并不是 bit 而是 byte**！！；
+
+   如果要存储一个 4 bytes 的 int，那么就是 for example 地址 0x10000001 - 0x10000004 都是这个 int）
+
+3. 一个 word 大小是 32 bits (4 bytes)
+
+因而在
+

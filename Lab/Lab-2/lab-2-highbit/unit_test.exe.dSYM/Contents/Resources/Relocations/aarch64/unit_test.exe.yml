@@ -1,0 +1,10 @@
+---
+triple:          'arm64-apple-darwin'
+binary-path:     unit_test.exe
+relocations:
+  - { offsetInCU: 0x26, offset: 0x26, size: 0x8, addend: 0x0, symName: _numHighBits, symObjAddr: 0x0, symBinAddr: 0x100003E90, symSize: 0x6C }
+  - { offsetInCU: 0x33, offset: 0x33, size: 0x8, addend: 0x0, symName: _numHighBits, symObjAddr: 0x0, symBinAddr: 0x100003E90, symSize: 0x6C }
+  - { offsetInCU: 0x26, offset: 0x96, size: 0x8, addend: 0x0, symName: _instructorTest, symObjAddr: 0x0, symBinAddr: 0x100003EFC, symSize: 0x24 }
+  - { offsetInCU: 0x41, offset: 0xB1, size: 0x8, addend: 0x0, symName: _instructorTest, symObjAddr: 0x0, symBinAddr: 0x100003EFC, symSize: 0x24 }
+  - { offsetInCU: 0x5A, offset: 0xCA, size: 0x8, addend: 0x0, symName: _main, symObjAddr: 0x24, symBinAddr: 0x100003F20, symSize: 0x4C }
+...

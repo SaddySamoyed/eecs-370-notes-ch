@@ -81,6 +81,14 @@ Specifically: p1a 花了大量时间的主要理由就是：一直没找到读 i
 
 ## Lec 4 - ARM (LEG subset)
 
+### ARM 中的特殊 registers
+
+ARM 中一个寄存器
+
+ZXR 表示 R0 寄存器，存储的值总是 0.
+
+R15 是 PC 寄存器
+
 ### ARM logical instructions
 
 （bitwise）
@@ -99,7 +107,7 @@ Specifically: p1a 花了大量时间的主要理由就是：一直没找到读 i
 
 ### ARM memory instructions
 
-我们的便宜 ISA IC2K 的 addressing 方式是 by word (4 bytes in IC2K)，意思是
+我们的便宜 ISA LC2K 的 addressing 方式是 by word (4 bytes in IC2K)，意思是每次 PC+1，实际上 PC 移动的是向前 4 个 bytes。这意味着我们无法处理 char 等长度小于 4 bytes 的数据类型。（因而我们的 LC2K 不是功能完备的 ISA）
 
 word 的大小就是一个 instruction 的大小，也就是 ISA 的数据宽度（
 
@@ -115,5 +123,11 @@ word 的大小就是一个 instruction 的大小，也就是 ISA 的数据宽度
 
 3. 一个 word 大小是 32 bits (4 bytes)
 
-因而在
+   （一个 half word 是 16 bits，一个 double word 是 64 bits）
+
+因而如果我们需要往前移动 a int，我们就要 increment address by 4；如果要往前移动一个 char，我们就要 increment address by 1.
+
+移动的单位都默认为 bytes.
+
+
 

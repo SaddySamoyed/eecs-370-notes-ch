@@ -347,3 +347,166 @@ cond 有以下几种：
 
 B.AL	always 执行，等价于 B
 
+
+
+
+
+## Lec 6 - Function call
+
+我们 call function 的时候通常使用  BL，把 PC + 4 存进  R30 link reg 中，但是只有一个 Link reg，而我们如果有多个嵌套函数，就会损失 return address 的信息
+
+当我们 call function 的时候我们要做这四件事：
+
+1. pass parameters
+2. save return address
+3. save reg values
+4. jump to called function
+
+execute function 后我们要：
+
+5. get return value
+6. restore reg values
+
+
+
+很显然，我们的 regs 是 finite 的，没法把所有 return address, reg values 都放进 regs 里（并且 data 的大小不一定适合
+
+所以我们会把这些信息放进 memory 里（call stack）
+
+和 memory 交换信息处理 data 肯定不如直接在 reg 上处理快，所以 ARMv8 的 solution 是：把 first few parameters 放进 regs (X0-X7)，把剩下来的放进 memory 的 call stack 上。
+
+
+
+### Call Stack
+
+ARM 在程序运行中会 allocate a region of memory，称为 call stack.
+
+Call stack 用以 manage 所有的 storage requirements to simulate function call semantics.
+
+1. parameters (that were not passed through regs)
+2. local vars
+3. temporary storage (run out of regs 时)
+4. return address
+5. ...
+
+每次做一个 function call 就会有一个 stack frame 被放上 call stack，并且这个 stack frame 在 return from function 的时候被 deallocate.
+
+**类似于 PC，我们有一个 stack pointer(SP，X28)，keep track of current top of stack.**
+
+
+
+### 内存布局结构
+
+stack 在最上方，最上部是封死的，新 frame 加入栈顶时，向下增长（栈顶在下面）。
+
+heap 在 stack 的下方，动态内存被分配时，向上增长。
+
+（stack 和 heap 分别朝相反的方向扩展，因此在内存不足或者栈和堆碰撞时，可能会引发 stack overflow ）
+
+<img src="note-assets\{212E42C1-ECFA-4618-8B17-AD433815B423}.png" alt="{212E42C1-ECFA-4618-8B17-AD433815B423}" style="zoom:75%;" />
+
+Static 段存放 global & static variables，在程序 loaded 时就被确定，在整个程序运行期间不变。
+
+Text 段在最底端，read only.
+
+
+
+一个程序中，dynamic memory goes to heap，static & global 的变量 goes to static；parameters & local variables go to stack
+
+> ex:
+>
+> ```c
+> int w; // w on static (global)
+> void foo(int x) { // x on stack
+>     static int y[4]; // y on static
+>     char* p;
+>     p = malloc(10);	// p on stack, the 10 btyes on heap
+>     //..
+>     printf("%s\n", p); // "%s\n" on static
+> }
+> ```
+>
+> note: "%s\n" on static 的原因是这是一个 string literal，不可变，在程序编译时就固定，不论 foo 被调用多少次，它的储存位置和内容都不变。
+
+### Saving regs
+
+Assembly 中，所有 functions 都只共享 32 个（ARM）regs
+
+call function 后我们会 Overwrite regs.
+
+<img src="note-assets\{79CC668C-62F2-420C-BD56-9EF84AC68EDF}.png" alt="{79CC668C-62F2-420C-BD56-9EF84AC68EDF}" style="zoom:75%;" />
+
+所以我们需要 store reg values.
+
+关于 save reg values 我们有两个办法：
+
+1. **callee saved**: 被 called 的 function 在 **overwrite reg values 前把它们 save 到 stack 上**，并且**在 return value 之前 restore 它们。**
+
+   ex:
+
+   ```assembly
+   main: movz X0, #1
+   	  bl foo
+   	  bl printf
+   
+   foo: stur X0, [stack]	//save X0 on stack
+        movz X0, #2
+        ldur X0, [stack]	//restore X0
+        br X30
+   ```
+
+2. **caller saved**: calling function **在 function call 前 save reg values on 自己的 stack**，并且在 function call 结束后 restore 这些 regs.
+
+   ```assembly
+   main: movz X0, #1
+   	  stur X0, [stack]  //save X0 on stack
+   	  bl foo
+   	  ldur X0, [stack]	//restore X0
+   	  bl printf
+   
+   foo: movz X0, #2
+        br X30
+   ```
+
+   
+
+#### caller-save 和 callee-save 的优劣势
+
+caller-save 的 must save: 在 call 完 callee() 之后，**如果 callee() 下面还会用到某些 caller() 的变量**，那么 call callee() 前必须 store 这些变量用到的 reg.
+
+**最小的函数不用 save**，因为它不是 caller.
+
+
+
+callee-save 的 must save: callee() 的 stack frame 里所有**用到的 reg 都必须在它 overwrite 一个 reg 时 save.** 
+
+**最大的 main() 函数不用 save**，因为它不是 callee.
+
+
+
+所以显然优劣势：
+
+caller-save 适合在 call 发生时它下面的 live variables 不多的情况
+
+callee-save 适合 callee 的 local variable 不多的情况。
+
+混用可以达到比较好的效果。
+
+
+
+convention 上，我们习惯分出 caller-saved regs (通常为0-15) 和 callee-saved regs(通常为19-27).
+
+我们希望在 main 中的变量尽量使用 callee-saved regs，在没有嵌套函数的函数中的变量尽量使用 caller-saved regs.
+
+
+
+## Lec 7 - Linker
+
+<img src="note-assets\{46563894-C240-46AF-BDE8-9F82ED12C14B}.png" alt="{46563894-C240-46AF-BDE8-9F82ED12C14B}" style="zoom:75%;" />
+
+high-level languages 会先通过 compiler 转为 assembly，
+
+assembly 再由 assembler 转为 object files
+
+object files 加上 Libraries 再通过 **linker** 转为 exe
+

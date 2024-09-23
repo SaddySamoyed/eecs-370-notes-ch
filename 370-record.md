@@ -81,11 +81,11 @@ Specifically: p1a 花了大量时间的主要理由就是：一直没找到读 i
 
 ## Lec 4 - ARM (LEG subset)
 
-### ARM logical instructions
+### ARM arithmetic && logical instructions
 
 （bitwise）
 
-1. ADD, ORR(inclusive), EOR(exclusive) 都是 x1 = x2 + x3
+1. ADD, ORR(inclusive), EOR(exclusive) 都是 x1 = x2 * x3
 
 2. ADDI, ORRI, EORI 是对应的 I-instructions (第三个 field 是常数): x1 = x2 + #immediate(3)
 
@@ -132,6 +132,8 @@ ARM 一共有 32 个 regs，因而在一条 instruction 中要以 5 个 bits 来
 ZXR 表示 R31 寄存器，这是一个零寄存器，存储的值总是 0.
 
 R15 是 PC 寄存器
+
+R30 是 link register
 
 #### memory instructions (data transfer)
 
@@ -247,4 +249,101 @@ Sequencing instructions change the flow of instructions being excuted.
 这是通过用 branching 调整 PC reg 实现的。
 
 
+
+#### ARM branching instructions
+
+Note: 
+
+1. branching instructions 比较特殊，并不是 branch by bytes 而是 instructions 的数量，即 **offsetfield 上是往前多少个 instructions 而不是多少个 bytes**.
+2. 不像 LC2K 需要 branch to PC  + offsetfield + 1，ARM 就是**直接 branch 到 offset field 数量的 instructions**,
+
+
+
+Unconditional:
+
+1. B      #simm26
+
+   PC = PC + #simm26 * 4 位置的 instructions
+
+2. BR    Xt
+
+   Xt 必须包含了一个 instruction 的地址
+
+   PC branch 到去 Xt 这个 reg 包含的地址上面的 instruction.
+
+3. BL    #simm26
+
+   这是一个带 link 的 branching，通常用于函数调用：会**先把 PC + 4 （本来的下一条 instruction 的地址）储存到 reg X30 (link register)**，然后**跳转到 PC + #simm26 * 4 位置的 instructions**.
+
+
+
+Unconditional:
+
+1. CBZ      Xt，#simm19
+
+   如果 Xt 上的值为 0 则跳转
+
+2. CBNZ     Xt，#simm19
+
+   如果 Xt 上的值不等于 0 则跳转
+
+3. B.cond     #simm19
+
+   如果 cond 为 true 则跳转
+
+   这一条 B.cond 是比较 high-level 的 implementation，十分智能。我们下面详细讲述
+
+Note: ARM 支持 label 跳转！
+
+> ex
+>
+> Again:	ADDI	X3, X3, #1
+>
+> ​		   CBNZ       X3, Again
+
+#### B.cond 的用法
+
+我们需要一个 extra status register 存储 condition 的条件
+
+但是这个寄存器并不是我们可使用的 R0 ~ R31 中的一个而是 **ARM 的一个特殊的状态寄存器 CPSR**
+
+CPSR 中的 NZCV 四个 flags 分别在 31, 30, 29, 29 位
+
+**N (Negative flag)**: 第31位
+
+**Z (Zero flag)**: 第30位
+
+**C (Carry flag)**: 第29位
+
+**V (Overflow flag)**: 第28位
+
+我们可以通过 `CMP`，`CMPI` 来比较两个 register / 一个reg和一个 immediate。
+
+```assembly
+CMP X0, X1         ; 比较 X0 和 X1
+B.EQ equal_label   ; 如果 X0 == X1，则跳转到 equal_label
+```
+
+在一次 cmp 后比较的结果会被自动存到 CPSR 中
+
+然后我们可以使用 B.cond  #simm19 / label 来 branch.
+
+cond 有以下几种：
+
+1. For signed number: B.EQ 表示结果相同；B.NE 表示结果不同；B.LT 表示左边小于右边；B.LE 表示昨天小于等于右边；B.GT,GE 是大于/大于等于；
+2. For unsigned numer：B.EQ；B.NE；B.LO；B.LS；B.HI；B.HS
+
+
+
+还有特殊的 cond:
+
+**我们可以在 ADD, SUB, ADDI, SUBI 后面加上 S （ex: ADDS) 来表示 set flag，把这个运算的结果是否 Negtive / zero / overflow / generate a carry **
+
+**B.MI** branch if CPSR 的上个 set flag 的运算结果是负的
+
+**B.PL** branch if CPSR 的上个 set flag 的运算结果是 正/0 的
+
+**B.VS / B.VC** branch on an overflow set/clear
+
+B.AL	always 执行，等价于 B
 

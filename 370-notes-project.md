@@ -58,3 +58,36 @@ undefined label 全部作 0 处理。
 
    如果是 beq 则无所谓，如果不是则把这个指令和右边 offsetfield 上使用的 label 放到 Relocation Table 成为一个 entry
 
+#### bug 5678
+
+这里我的 test case 发现了两个 Bug:
+
+1. 计算 line 到达 text 和 data 分割点的方法有问题。一个是没考虑纯 text 和 纯 data，另一个上很长的 data 会导致循环（这里犯了一个低级错误，一旦行数积累到 text 数量 line 就清零了）
+
+   解决方法是使用 lebron 的做法，设一个 partition line 表示在哪一行 partition，然后 line 追踪
+
+2. 很多人都有的一个问题：对于出现两次的 extern label 处理并不好。出现 label 时我们都搜索，如果找到了就直接转换，如果没找到则 {if 大写，是 extern，写成0；if 小写，是 undefined 报错}
+
+   但这里发现问题：没有处理同时出现两次的 extern label.
+
+   解决方法：发现 extern 时也查一遍 symbol 表.
+
+解决这两个问题之后结束了。 test case 还差四个
+
+整理 test case:
+
+A: test1fill
+
+B: test5
+
+D: test1fill
+
+E: test14zf
+
+F: test1fill
+
+I: test1fill
+
+J: test10-duplicate
+
+(test1像个战神。。)

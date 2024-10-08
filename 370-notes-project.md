@@ -1,5 +1,15 @@
 # 370 Project notes
 
+## Project 1
+
+## 1a - Assembler
+
+一个巨大的惨痛经验：一定不要吝惜时间写 test files，写 test files 的时间都是微不足道并且值得的。。。。自己的 test file 就是可以检验程序写的对不对
+
+Specifically: p1a 花了大量时间的主要理由就是：一直没找到读 int 的那个问题，，，一定要 `& 0xFFFF` ！！！因为系统的 int 不是 16 位的，而我们这里 16 位，碰到二补码前面全是 F 就老实了。一定要注意每个数字的格式！！
+
+
+
 ## Project 2
 
 ### 2a - Assembler

@@ -303,17 +303,62 @@ FSM 就是一个每时每刻都接受 input，并马上通过 input 来到 next 
 
 
 
-Idea: 由于有很多变量和输出结果不同，我们用 logic gates 来实现真值表不太可行。但是我们看以考虑直接把整个真值表储存进 memory:
+Idea: 由于有很多变量和输出结果不同，我们用 logic gates 来实现真值表太过于耗时间。
+
+所以我们考虑直接把整个真值表储存进某个 Read Only memory 里。可以直接买一个 read only memory bar 来实现。
 
 <img src="note-assets-370/Screenshot 2024-10-08 at 09.45.56.png" alt="Screenshot 2024-10-08 at 09.45.56" style="zoom:50%;" />
 
 
 
-ROM 的储存方式是这样的：
+ROM 的使用是这样的：
+
+这是一个 8 entry 4 bit 的 ROM.
+
+我们输入一个 3 位的 bits 用 3x8 decoder 把它的输出转化为 8 位只有一位是 1 的 bits，于是每一个输入就对应了 decoder 的一个 horizontal line.
+
+我们可以通过调整 data output 和 horizontal line 交线上的 diodes 来编辑 ROM（只能编一次，因为调整就是把它烧掉），控制这一条 horizontal line 对应的输出。
+
+这就实现了每个 state 的不同输出
 
 
 
 ![Screenshot 2024-10-08 at 09.50.33](/Users/fanqiulin/Library/Application Support/typora-user-images/Screenshot 2024-10-08 at 09.50.33.png)
+
+这种存储 state output 的方式很常见，也有缺点：如果我们要多加入一个 bit 的 input，我们就要 double the size of ROM. 所以储存大小的需求是 exponential 的
+
+
+
+
+#### 计算 size of ROM
+
+Size of ROM = #of ROM entries * size of each entry. 	
+
+其中 #size of ROm entries = $2^\text{input size}$， size of each entry = outputsize
+
+所以
+$$ { }
+\text{sizeROM} = 2^{input size} * \text{outputsize}
+$$
+对于 24 位地址的输入，假设我们 ROM memory 宽度是 13 bit，那么我们需要 2^24 * 13 =218,103,808 bits = 26 MB ROM. 如果我们买 六美元 4mb 的 ROM，我们需要大改 42 美元才可以实现
+
+（并且我们需要编辑这些 ROM，显然不太可行
+
+
+
+所以我们需要结合 combinatorial logic 和 ROM 来实现 transition 来优化我们需要的 ROM 大小
+
+
+
+优化钱
+
+<img src="note-assets-370/Screenshot 2024-10-08 at 11.24.29.png" alt="Screenshot 2024-10-08 at 11.24.29" style="zoom:67%;" />
+
+优化后：使用
+
+<img src="note-assets-370/Screenshot 2024-10-08 at 11.24.45.png" alt="Screenshot 2024-10-08 at 11.24.45" style="zoom:67%;" />
+
+
 
 
 

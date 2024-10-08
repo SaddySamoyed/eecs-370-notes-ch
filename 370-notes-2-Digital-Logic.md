@@ -107,6 +107,8 @@ half-adder 不考虑先前的进位，是一个简化的计算一个 bit 和一�
 
 ALU 就是  Arithmetic Logic Unit。我们很自然想到把一个 32-bit full adder 和一个 32 位 input 的复合 nor gate 的输出用一个 mux 连接起来就可以实现一个 ALU.
 
+(这只是对于 LC2K，其他更复杂的 processor 融合了更多函数)
+
 <img src="note-assets-370\{EA817860-A522-4A95-B421-41C33B99889A}.png" alt="{EA817860-A522-4A95-B421-41C33B99889A}" style="zoom:80%;" />
 
 当 S = 1 时这是个 nor，当 S = 0 时这是个 32-bit adder. 
@@ -267,19 +269,61 @@ D flip flop 并不是无懈可击的，如果恰好，data 改写的时间就在
 
 ## Lec 10: Finite State Machine
 
+combinatorial logic：用来 implement 布尔表达式
+
+sequential logic: 用来存储状态
+
+
+
+现在我们学习如何
+
+一个 FSM 的组成是
+
+1. 有限个状态
+2. N 个 inputs
+3. M 个 outputs
+4. Transition function $T(S,I): states \times inputs\rightarrow states$，把每个状态下的每个 input 都映射到一个新的状态
+5. Output function: 分为两种：如果只取决于 State，那么就是 Moore Machine；如果取决于 state 和 input，那么就是 Mealy Machine
+
+计算机中的 一个state 就是 memory, reg files 和 regs 的值. 我们使用 Read Only Memory 来 implement （对于一个ISA的）transition function：即操作指令如何和 memory 进行交互
+
+
+
 和 376 的 FSA 基本一样。区别是：FSA 只在 final state 产生 output 而 FSM 一直在产生 output；FSA will eventually stop，但是 FSM 会有不停的 (ideally) input，不会 stop.
 
+FSM 就是一个每时每刻都接受 input，并马上通过 input 来到 next state 并产生 output 的机器。
 
 
-如果没有 state transition: 总是在同一个 state.
 
 ### ROM(read only memory)
 
+我们使用 programmable read only memory （每个 bit 只能修改第一次）针对我们的 ISA 来 implement 出它的 FSM（即读写数据以及计算数据的 data path）
 
+<img src="note-assets-370/Screenshot 2024-10-08 at 05.15.36.png" alt="Screenshot 2024-10-08 at 05.15.36" style="zoom:50%;" />
+
+
+
+Idea: 由于有很多变量和输出结果不同，我们用 logic gates 来实现真值表不太可行。但是我们看以考虑直接把整个真值表储存进 memory:
+
+<img src="note-assets-370/Screenshot 2024-10-08 at 09.45.56.png" alt="Screenshot 2024-10-08 at 09.45.56" style="zoom:50%;" />
+
+
+
+ROM 的储存方式是这样的：
+
+
+
+![Screenshot 2024-10-08 at 09.50.33](/Users/fanqiulin/Library/Application Support/typora-user-images/Screenshot 2024-10-08 at 09.50.33.png)
 
 
 
 
 
 ## Lec 11: Single-Cycle Datapath
+
+
+
+
+
+## Lec 12 Multi-Cycle Datapath & Pipelining
 

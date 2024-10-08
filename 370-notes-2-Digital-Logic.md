@@ -1,4 +1,4 @@
-# Note Part2: Digital Logic
+# ·Note Part2: Digital Logic
 
 ## Lec 8 (1): 表示 float nums
 
@@ -67,6 +67,10 @@ mux 和 nor, nand 一样都是 universal 的！一个 2^N entry 的全 truth tab
 
 ex: 0b101 = 5，所以 decoder 的第六位 (b5) 是 1.
 
+<img src="note-assets-370/Screenshot 2024-10-08 at 16.45.10111.png" alt="Screenshot 2024-10-08 at 16.45.10" style="zoom:50%;" />
+
+
+
 
 
 ### Adder
@@ -112,6 +116,8 @@ ALU 就是  Arithmetic Logic Unit。我们很自然想到把一个 32-bit full a
 <img src="note-assets-370\{EA817860-A522-4A95-B421-41C33B99889A}.png" alt="{EA817860-A522-4A95-B421-41C33B99889A}" style="zoom:80%;" />
 
 当 S = 1 时这是个 nor，当 S = 0 时这是个 32-bit adder. 
+
+
 
 
 
@@ -350,11 +356,13 @@ $$
 
 
 
-优化钱
+ex：
+
+优化前：ROM = 2^24 * 13 bits
 
 <img src="note-assets-370/Screenshot 2024-10-08 at 11.24.29.png" alt="Screenshot 2024-10-08 at 11.24.29" style="zoom:67%;" />
 
-优化后：使用
+优化后：ROM = 2^5 * 4 bits
 
 <img src="note-assets-370/Screenshot 2024-10-08 at 11.24.45.png" alt="Screenshot 2024-10-08 at 11.24.45" style="zoom:67%;" />
 
@@ -362,9 +370,67 @@ $$
 
 
 
-
-
 ## Lec 11: Single-Cycle Datapath
+
+我们需要设计一个 General purpose processor. 
+
+它需要做的：
+
+1. fetch instructions 
+
+2. decode instructions (即把 instructions 输入给 control ROM)
+
+3. 通过 ROM 来控制 data movement
+
+   包括 pc++，reading regs，ALU control 等
+
+   LC2K 中，ROM 接受一个 3x8 decoder，把 3 位的 opcode decode 为 00000001 - 10000000，对应八个不同的八个 bits. ，放在合适的地方（比如作为某个 mux 的选择 bit 等）来实现不同的操作
+
+4. 用 clock 来 drive all
+
+<img src="note-assets-370/Screenshot 2024-10-08 at 16.38.18.png" alt="Screenshot 2024-10-08 at 16.38.18" style="zoom:67%;" />
+
+Note: 我们 assume 任何 memory 都是一个 array of D flip flops，实际情况更复杂，但是我们这样假设
+
+Note2: sign extension 运算<img src="note-assets-370/Screenshot 2024-10-08 at 16.47.15.png" alt="Screenshot 2024-10-08 at 16.47.15" style="zoom:50%;" />
+
+
+
+### State Building Blocks: reg files, memory 
+
+<img src="note-assets-370/Screenshot 2024-10-08 at 16.56.26.png" alt="Screenshot 2024-10-08 at 16.56.26" style="zoom:67%;" />
+
+Reg file 就是所有 regs 的集合。
+
+我们使用这样的一个 reg file memory block 来储存 memory，通过逻辑门取其中的第 R1 个和第 R2 个以及第 D 个：R1，R2 表示读取的两个 regs，D 表示要写入的 reg
+
+W 表示要写入的数据
+
+还有组合进它的逻辑的是一个 enable bit，用 mux 来控制是否要打开 write. 不需要改写 reg value 的指令可以不 enable 它，使得速度更快
+
+
+
+<img src="note-assets-370/Screenshot 2024-10-08 at 17.06.28.png" alt="Screenshot 2024-10-08 at 17.06.28" style="zoom:67%;" />
+
+data memory：更慢的 memory。这是因为我们总是先处理 reg file，然后 reg file 中输出的 reg values 再才可能输入到 data memory 里，用以交互，储存 regs 里放不下的值
+
+同样支持读写，需要一个 enable bit 和一个 mux 控制 enable
+
+
+
+
+
+现在我们做一个 single-cycle datapath for LC2K: **任意 instruction 都在一个 clock cycle 内完成**
+
+### ADD/NOR
+
+
+
+
+
+
+
+
 
 
 

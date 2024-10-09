@@ -450,6 +450,8 @@ opcode: 000，decode: 00000000
 
 
 
+用时：读指令（access memory）+ read reg + ALU + write reg
+
 nor: 除了第 2 个 ROM bit 设置为 1，获取 Nor 结果，其他都一样。
 
 
@@ -476,6 +478,14 @@ sw: 即 M[regA + offset] = regB; PC++
 
 <img src="note-assets-370\{CCA51D1C-8F32-4866-80E7-67783FE3B50E}.png" alt="{CCA51D1C-8F32-4866-80E7-67783FE3B50E}" style="zoom:67%;" />
 
+#### 耗时
+
+sw: get inst(read mem) + read reg + ALU + read mem
+
+lw:  get inst(read mem) + read reg + ALU + read mem + write reg
+
+
+
 
 
 ### BEQ
@@ -493,6 +503,10 @@ else PC++
 对于 beq，我们需要另一个额外的通路。设置一个四 bits 的 and，b3 获取 ALU 的结果看是否是1，b[2:0] 判断 opcode 是否是 beq(100).
 
 我们在 ALU 中判断 regA 是否等于 regB 的方法即：not(XOR(A,B)) = (A nor (A nor B)) or (B nor (A nor B))
+
+#### 耗时
+
+read inst(mem)  + read reg + ALU
 
 
 
@@ -534,3 +548,255 @@ Halt：更加复杂。我们实际上并不能真的停止运行，只能 transf
 
 ## Lec 12 Multi-Cycle Datapath & Pipelining
 
+对于 single-cycle 而言，所有 Instructions 都 run at the speed of the slowest instruction. **(最慢的指令决定 clock 周期，这是为了统一 clock 的周期，让最慢的指令也可以在一个 clock 内运行完)**
+
+如果我们想添加一个 long instruction，那么整体性能将极大下降；即便我们可以优化很多模块，也完全没用。
+
+并且我们并不能 reuse processor 的任何 part
+
+
+
+比如如果最长的指令是 lw，8ns
+
+有一百条指令，single cycle 运行延迟就是 800ns
+
+我们希望每个指令有各自的运行延迟
+
+
+
+### Multi-Cycle Execution Overview
+
+每个 instruction 都 take multiple cycles
+
+cycle time reduced
+
+Slower instructions take more cycles，faster instructions take fewer cycles
+
+这样我们就可以通过优化一个操作来优化一个 clock cycle，从而让全部运行时间都降低，而不受短板的限制。并且我们每个 cycle 可以 reuse datapath.
+
+
+
+为了完成这个优化，我们需要：
+
+1. 更多，更 wider 的 MUXes， 为了 **reuse elements for different purposes.**
+2. 更多 regs 用来记住同一个指令的上一个 cycle 的 output
+3. 更复杂的 control
+
+
+
+做法有很多种，我们可以选择: 把一个 instruction 分成好几个 discrete 阶段
+
+cycle 1: fetch instruction from memory
+
+cycle 2: decode instruction
+
+cycle 3+: 执行 instruction
+
+
+
+<img src="note-assets-370\{375D3D8A-F537-4AFD-B7E6-48912FB6219F}.png" alt="{375D3D8A-F537-4AFD-B7E6-48912FB6219F}" style="zoom:50%;" />
+
+
+
+Multicycle datapath 的 idea 就是：用更多的 control 换取单次 cycle 更短的时间，通过多次的 cycle 来实现一个指令
+
+![{B46A77AC-E3D5-400B-819E-3966F2F18B3A}](note-assets-370\{B46A77AC-E3D5-400B-819E-3966F2F18B3A}.png)
+
+**我们发现：ROM 的宽度，即一个 state 的  output，应当有 12 个 bits，如上图（MUXalu2 是 4-mux，有两个 bits)**
+
+
+
+<img src="note-assets-370\{610752C7-18CE-4118-A50A-5E7CDD4BAC70}.png" alt="{610752C7-18CE-4118-A50A-5E7CDD4BAC70}" style="zoom: 33%;" />
+
+**一共 13 个 state，所以需要 4 个 Bits 来 encode state**
+
+（为什么 lw 要分成三个 states ? 因为我们希望宁愿多一个 state 也不要 clock cycle 时间变长，不然所有 Instructions 的ns都变长了）
+
+**所以 ROM 的大小是 $2^4 \times 12$**
+
+<img src="note-assets-370\{7D1C6E22-4927-43EE-9ACF-D2ACEB5931BA}.png" alt="{7D1C6E22-4927-43EE-9ACF-D2ACEB5931BA}" style="zoom: 67%;" />
+
+
+
+### State 0 (Universal): fetch
+
+<img src="note-assets-370\{40FBDA35-5A75-4A12-A58D-00B44519D5C2}.png" alt="{40FBDA35-5A75-4A12-A58D-00B44519D5C2}" style="zoom:50%;" />
+
+1. 设置 PC_en 位 0，因为我们这个时候还不想 update PC
+2. 设置 MUX_address 为 0，因为我们想要 PC 的 input 而不是结尾 ALU 返回回来的 Input
+3. 设置 memory enabled 为 1，要读 instructions
+4. 设置 Mem_rw = 0，read
+5. 设置 instruction reg (改写)enabled = 1，update 一次 instruction reg，之后的 cycles 就都不用 read instruction 了
+6. 设置 MUX_alu2 为 01，这样就切换到了我们 hardcode 的 1，把 PC + 1 传输到了 ALU 里
+
+
+
+### State 1: Decode 
+
+decode 阶段做的事情就是：更新刚刚++的PC；read regA，B；通过 opcode determine next state.
+
+只需要设置 PC _en  = 1表示 update，memory enabled =  0 表示这次不读 memory，instruction reg update enabled = 0，reg file Wr_en = 0 就可以，其他都无所谓
+
+<img src="note-assets-370\{00AD7A16-4DE8-4725-991B-CB70F37DD4E7}.png" alt="{00AD7A16-4DE8-4725-991B-CB70F37DD4E7}" style="zoom:50%;" />
+
+
+
+#### 如何确定下面一个 state 是五个里面哪一个？
+
+我们把 3 bit 的 opcode 看作 control rom 的 extra input. 
+
+question: 这难道不会让 ROM size 乘以 8 吗？
+
+答：使用 combinatorial logic 避免一下。
+
+<img src="note-assets-370\{B04B6196-95ED-4D43-82E5-4D82316A6538}.png" alt="{B04B6196-95ED-4D43-82E5-4D82316A6538}" style="zoom:50%;" />
+
+做法：**当且仅当我们在 fetch state 的时候，设置原始的 next state 为 1111 (值为15，并没有这个 real state)**，把这四个 1 进行一个 AND gate，作为一个 mux 的 choice bit。
+
+我们通过原始 next state 和一个由 opcode 数据决定的 next state 表进行 MUX 选择。
+
+在其他 state 下，我们的 Next state 都是 0-12 之间的数，所以由 AND 得到的 choice Bit 是 0，进行正常过 state；**当且仅当我们在 fetch state 时，这四个 bits 是 1，于是右边的 opcode decoder 表编辑的 ROM 决定了下一个 state。**
+
+
+
+### State 2-3: Add
+
+State 2: 在 decode 阶段我们从 instruction 中确定了需要读取的两个 reg 是哪两个
+
+State 2 中我们把 reg file 里这两个 regs 的值输出到 Mux_alu1 和 Mux_alu2 里
+
+所以 Mux_alu1 设置为 1，Mux_alu_2 设置为 00，
+
+ALU 设置为 0，以取 Add
+
+其余都随意。注意到 PC_en，memory_en，Inst reg_in 应该为 0，不需要再跑一次
+
+<img src="note-assets-370\{96162DC7-CFEC-4ED1-8F39-7B8D2750BFCF}.png" alt="{96162DC7-CFEC-4ED1-8F39-7B8D2750BFCF}" style="zoom:50%;" />
+
+next state: 3
+
+
+
+state 3: 现在 regA + regB 的结果已经进入了 ALU result，最后一个 cycle 要做的事情就是把它传到 reg file 前的 mux，
+
+Note: reg 前面两个 MUX，从 Inst reg 来的 mux 是选择 destR 的，上面表示选择 inst 的 18-16 bits，下面表示选择 2-0 bits，由于我们的 add 的 destR 在 2-0，我们选择为1
+
+从 ALU result 来的 MUX 表示接受 memory 的 read 还是接受 ALU result 的 read，我们接受 ALU result 的 read，选择 1
+
+于是：
+
+<img src="note-assets-370\{BF917765-802C-4737-9101-22D20964EA33}.png" alt="{BF917765-802C-4737-9101-22D20964EA33}" style="zoom:50%;" />
+
+
+
+State 4, 5 nor 和 add 基本差不多。我们可以分辨。
+
+
+
+### State 6-8: lw
+
+**State 6: 计算出 regA + offset**
+
+这个时候我们的 MUX_alu1 应当设置 1，因为我们想要 take regA 而不是 PC 的输入
+
+MUX_alu2 应该设置 11，因为我们不想要 regB 或 hardcode 0,1 的输入而是想要 offsetfield 的输入
+
+然后 ALU 设置 0，进行 add
+
+<img src="note-assets-370\{66F301BC-8D36-4B5F-A573-03365C73B31F}.png" alt="{66F301BC-8D36-4B5F-A573-03365C73B31F}" style="zoom:50%;" />
+
+
+
+**State 7: read memory location**
+
+<img src="note-assets-370\{8BFD3EDE-8B51-46EF-B410-DA2A04C220CB}.png" alt="{8BFD3EDE-8B51-46EF-B410-DA2A04C220CB}" style="zoom:50%;" />
+
+Note: 我们这个时候读取了 memory 的某一行地址
+
+
+
+**State 8: Write memory value to reg files**
+
+<img src="note-assets-370\{56796A6C-8516-4EDC-B8E9-14721CAF9AF4}.png" alt="{56796A6C-8516-4EDC-B8E9-14721CAF9AF4}" style="zoom:50%;" />
+
+
+
+
+
+State 9-10: sw 和 lw 前面基本一样，只是不需要最后一个 cycle 而已
+
+
+
+### State 11-12: beq
+
+State 11: Calculate PC + 1 + offset 进入 ALU result
+
+和前面一样。我们注意到 PC 此时已经是 PC+1 了，所以直接把 PC 和 offsetfield (MUX_alu2 的 11 选项) 相加就可以
+
+<img src="note-assets-370\{AD157D44-BBF1-4620-8515-D0D81DA77007}.png" alt="{AD157D44-BBF1-4620-8515-D0D81DA77007}" style="zoom:50%;" />
+
+
+
+
+
+next state: 1100
+
+
+
+State 12: 判断如 Data[regA] == Data[regB]，我们把 ALU result 里存储的新 PC 值存进 PC
+
+和 single cycle 的逻辑一样，我们需要一些额外的逻辑门来做到这件事
+
+我们需要**把 opcode 和 1100 进行比较，并且把比较结果和 PC 是否 enable 进行一个 OR gate** . 当 Data[regA] = Data[regB] 在 ALU 中计算出相同时，我们另起一个 ALU result，把另外一个 ALU result 也就是 PC + 1 + offset 的地址传给 PC
+
+这样**不影响其他 states 时的行为。**
+
+
+
+这里有一件比较抽象的事情：我们此时要改写 PC，理应设置 PC_en = 1
+
+但是我们发现，我们这个思路就**必须设置此时 PC_en =0**. 因为如果此时 PC_en ==1 那么我们的 OR gate 就导致比较结果没用了，不论 Data[regA] == Data[regB] 与否都会更新 PC.
+
+所以此时正确的 control bits 是
+
+<img src="note-assets-370\{EDBDEA0C-F87D-425E-93D2-E395D4376F09}.png" alt="{EDBDEA0C-F87D-425E-93D2-E395D4376F09}" style="zoom:50%;" />
+
+
+
+### Multi-cycle behavior
+
+我们对于每个循环，仍然是取最大延迟的一个 State 来决定 cycle time
+
+假设我们的延迟表是这样的：
+
+<img src="note-assets-370\{36AED985-B577-4EF0-80D0-86D0D88EA7A7}.png" alt="{36AED985-B577-4EF0-80D0-86D0D88EA7A7}" style="zoom: 50%;" />
+
+我们发现：我们设计的 cycles，每一个最多都只有一个 operation. 所以一个 cycle time = 延迟最大的 cycle 延迟 = 延迟最大的 operation 延迟 = 2ns，(read memory)
+
+回忆 single cycle:  一个 cycle 延迟是所有 Instructions 最大的可能延迟  =  lw 的延迟 = 2 +1 + 2 + 2 + 1 = 8 ns
+
+而 multicycle: lw 有 5 个 cycles，take 100ns 延迟；其他指令都take 80ns 延迟
+
+我们发现延迟居然还变大了，真的布什人
+
+
+
+但是我们仔细想一想：如果最大延迟的 instruction 不是 lw 而是一个 take 16ns 的 Instruction，那差距就大了
+
+或者如果我们可以优化某个 operation 的延迟，那么 single cycle 得到的好处就比 multicycle 小很多了
+
+
+
+我们关心的真正问题就是 execution time of a program.
+
+Execution time = CPI * #insts * clockPeriod
+
+CPI 即 average number of clock cycles per instruction
+
+Single Cycle Processor 的 CPI: 1（但是 clock period 长，比如 10ns
+
+Multi Cycle Processor 的 CPI: 4.25 左右（但是 clock period 短，比如 2ns
+
+我们更希望的是 CPI 和 clock period 都短
+
+（next time: pipeline processors

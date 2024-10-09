@@ -422,17 +422,113 @@ data memory：更慢的 memory。这是因为我们总是先处理 reg file，�
 
 现在我们做一个 single-cycle datapath for LC2K: **任意 instruction 都在一个 clock cycle 内完成**
 
+### Overall View
+
+<img src="note-assets-370\{8B56FA20-FD17-4757-B7B1-1C76A015107A}.png" alt="{8B56FA20-FD17-4757-B7B1-1C76A015107A}" style="zoom:75%;" />
+
+
+
+
+
 ### ADD/NOR
 
+add regA, regB, destR
+
+即：dest R = regA + regB; PC++
+
+<img src="note-assets-370\{6DECCE48-CE29-4FB3-B0DB-58DBBA4DE359}.png" alt="{6DECCE48-CE29-4FB3-B0DB-58DBBA4DE359}" style="zoom: 50%;" />
+
+opcode: 000，decode: 00000000
+
+1. 第 6 个 ROM bit: mux 设置为 1，因为 regA 是 bit 2-0
+2. 第 4 个 ROM bit: reg write enable 设置为 1，因为要改写 destR
+3. 第 3 个 ROM bit: mux 设置为 1，因为我们需要获取 regfile 的第二个 output 而不是上面 sign extend 的 offsetfield 的值
+4. 第 2 个 ROM bit: ALU 设置为 0，因为我们需要 add 而不是 nor
+5. 第 5 个 ROM bit: MUX 设置为 1，因为我们要的不是 data memory write 回 reg files，而是要这个时候我们的 reg1+reg2 的结果 write 回 destR.
+6. 第 1 个 ROM bit: enable 设置为0，因为不需要写入 data memory.
+7. 第 0 个 ROM bit: 随便，因为已经设置 enable 0 了，这个时候 R/W 都不生效
+
+
+
+nor: 除了第 2 个 ROM bit 设置为 1，获取 Nor 结果，其他都一样。
 
 
 
 
 
+### LW/SW
+
+<img src="note-assets-370\{A1E5BB69-FA3E-4154-88C4-4124F4B06CC3}.png" alt="{A1E5BB69-FA3E-4154-88C4-4124F4B06CC3}" style="zoom:75%;" />
+
+lw regA, regB, offset，即：
+
+regB = M[regA + offset]; PC++
+
+<img src="C:\Users\19680\AppData\Local\Packages\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\TempState\ScreenClip\{BC3A871C-F364-4751-8867-6DAFBC547D5F}.png" alt="{BC3A871C-F364-4751-8867-6DAFBC547D5F}" style="zoom:67%;" />
+
+write enabled. reg1 在 ALU 中和第三个 mux 里来的 sign extend offset 进行相加，结果进入 data 作为 read memory 的位置，把 read 出来的 memory 又传输给了第二个 mux，于是第一个 mux 代表的  reg 的值被改写为第二个 mux 的 output 的值
+
+这里 R/W 的 0 表示 R，read.
 
 
 
+sw: 即 M[regA + offset] = regB; PC++
 
+<img src="note-assets-370\{CCA51D1C-8F32-4866-80E7-67783FE3B50E}.png" alt="{CCA51D1C-8F32-4866-80E7-67783FE3B50E}" style="zoom:67%;" />
+
+
+
+### BEQ
+
+beq regA, regB, offset
+
+if (regA == regB) 则 PC += 1+offset
+
+else PC++
+
+<img src="note-assets-370\{E4334037-D35C-4D41-83B2-273CCB3911C3}.png" alt="{E4334037-D35C-4D41-83B2-273CCB3911C3}" style="zoom: 50%;" />
+
+<img src="note-assets-370\{93670300-4627-41F5-B7D9-51621B741F34}.png" alt="{93670300-4627-41F5-B7D9-51621B741F34}" style="zoom: 50%;" />
+
+对于 beq，我们需要另一个额外的通路。设置一个四 bits 的 and，b3 获取 ALU 的结果看是否是1，b[2:0] 判断 opcode 是否是 beq(100).
+
+我们在 ALU 中判断 regA 是否等于 regB 的方法即：not(XOR(A,B)) = (A nor (A nor B)) or (B nor (A nor B))
+
+
+
+### JALR
+
+jalr: jump and link register
+
+即：
+
+write PC+1 into regB
+
+regA = PC
+
+
+
+这是一个 Ugly instruction。。。
+
+<img src="note-assets-370\{F023EB82-4522-4146-A97E-8661C33D144E}.png" alt="{F023EB82-4522-4146-A97E-8661C33D144E}" style="zoom:50%;" />
+
+<img src="note-assets-370\{ABA2672C-5A44-4D32-9D7A-B68302CBFD0F}.png" alt="{ABA2672C-5A44-4D32-9D7A-B68302CBFD0F}" style="zoom:50%;" />
+
+jalr 也需要额外的通路。
+
+1. pc+1 的结果要通到第二个 mux（图中蓝色），并且要新加一个 seletion bit，选择 01 作为二位的 selection bits（pc+1 通到中间
+
+2. register file 的输出要通到第0 个 mux（图中粉色），也是一样需要两个 control bits（因为一共有三个 inputs，其实还有隐形的第四个但总是0）
+
+   **这两个 control Bits = 01（正确的 control bit）当且仅当 opcode = 101 (jalr) 并且 regA 不等于 reg B。我们需要加一个判断并通到第二个 control bit 的控制 AND 门的最高位上，用一个 not equal 的判断逻辑门。**
+
+   这是因为：我们难以处理 regA = regB 的状态。这个时候我们做的事情等于存 Pc 以及 pc++.
+
+   但是问题是：我们 update PC 和 reg file 是在同一时刻的。会导致我们把旧的 PC（没有++）更新到 PC 上。所以我们需要判断 regA 不等于 regB。
+
+
+
+Halt：更加复杂。我们实际上并不能真的停止运行，只能 transfer control over 其他的 running programs. 这里不 implement.
 
 
 

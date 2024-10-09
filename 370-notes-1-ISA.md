@@ -54,7 +54,7 @@ int numHighBits(int input){
 
 比如 `n` 为 int，那么 `sizeof(n)` = 32 或 64，取决于语言. 
 
-所以拿 `sizeof(n)*8` 就是这个 datatype 占的 bytes 数.
+所以拿 `sizeof(n)*8` 就是这个 datatype 占的 bits 数.
 
 ```c
 int numHighBits(int input){
@@ -189,7 +189,7 @@ Endian 表示在一个 half/double/standard word 内，bytes 的 ordering: **sig
 
 Little Endian 表示 word 的 4 个 bytes 中从前到后是 insignificant 到 significant；big endian 反过来
 
-<img src="note-assets\{88DDE483-BA5F-43F7-ADF0-F64DE5B5ACF3}.png" alt="{88DDE483-BA5F-43F7-ADF0-F64DE5B5ACF3}" style="zoom: 67%;" />
+<img src="note-assets-370\{88DDE483-BA5F-43F7-ADF0-F64DE5B5ACF3}.png" alt="{88DDE483-BA5F-43F7-ADF0-F64DE5B5ACF3}" style="zoom: 67%;" />
 
 ARM 中两种都可以使用，只是要 consistent，我们默认使用 little
 
@@ -225,7 +225,7 @@ array：只需要 treat 每个元素 as independent object 就可以，一共只
 
 如果只有一个 struct object，那么看起来只要每个 primitive 成分分开 padding 一下就可以了，但是我们发现如果我们想要一个 array of struct objects 就会有问题。**因为 beginning address 的不同会导致这个 struct array 中相邻的两个元素之间的 Padding 不同，这样这个 struct array 就很难 loop.**
 
-<img src="note-assets\{49551745-506D-4341-B6AA-9A8D24986C1B}.png" alt="{49551745-506D-4341-B6AA-9A8D24986C1B}" style="zoom:75%;" />
+<img src="note-assets-370\{49551745-506D-4341-B6AA-9A8D24986C1B}.png" alt="{49551745-506D-4341-B6AA-9A8D24986C1B}" style="zoom:75%;" />
 
 解决方法：
 
@@ -234,7 +234,7 @@ array：只需要 treat 每个元素 as independent object 就可以，一共只
 1. struct 的 starting address 是 struct 中的 largest primitive 的倍数
 2. 整个 struct 的 total size 是 struct 中的 largest primitive 的倍数
 
-<img src="note-assets\{CD8E3D6A-43BB-4CD0-B29C-55CFD7117FCF}.png" alt="{CD8E3D6A-43BB-4CD0-B29C-55CFD7117FCF}" style="zoom:75%;" />
+<img src="note-assets-370\{CD8E3D6A-43BB-4CD0-B29C-55CFD7117FCF}.png" alt="{CD8E3D6A-43BB-4CD0-B29C-55CFD7117FCF}" style="zoom:75%;" />
 
 note: data padding 是 C compiler 把 C 翻译成 assembly 的时候做的事情。在 struct 外面，有的 compiler 会 reorder variables to avoid padding，但是 在 struct 里面任何 compiler 都不会（C99 has forbidden it.)
 
@@ -403,7 +403,7 @@ heap 在 stack 的下方，动态内存被分配时，向上增长。
 
 （stack 和 heap 分别朝相反的方向扩展，因此在内存不足或者栈和堆碰撞时，可能会引发 stack overflow ）
 
-<img src="note-assets\{212E42C1-ECFA-4618-8B17-AD433815B423}.png" alt="{212E42C1-ECFA-4618-8B17-AD433815B423}" style="zoom:75%;" />
+<img src="note-assets-370\{212E42C1-ECFA-4618-8B17-AD433815B423}.png" alt="{212E42C1-ECFA-4618-8B17-AD433815B423}" style="zoom:75%;" />
 
 Static 段存放 global & static variables，在程序 loaded 时就被确定，在整个程序运行期间不变。
 
@@ -434,7 +434,7 @@ Assembly 中，所有 functions 都只共享 32 个（ARM）regs
 
 call function 后我们会 Overwrite regs.
 
-<img src="note-assets\{79CC668C-62F2-420C-BD56-9EF84AC68EDF}.png" alt="{79CC668C-62F2-420C-BD56-9EF84AC68EDF}" style="zoom:75%;" />
+<img src="note-assets-370\{79CC668C-62F2-420C-BD56-9EF84AC68EDF}.png" alt="{79CC668C-62F2-420C-BD56-9EF84AC68EDF}" style="zoom:75%;" />
 
 所以我们需要 store reg values.
 
@@ -502,7 +502,7 @@ convention 上，我们习惯分出 caller-saved regs (通常为0-15) 和 callee
 
 ## Lec 7 - Linker
 
-<img src="note-assets\{46563894-C240-46AF-BDE8-9F82ED12C14B}.png" alt="{46563894-C240-46AF-BDE8-9F82ED12C14B}" style="zoom:75%;" />
+<img src="note-assets-370\{46563894-C240-46AF-BDE8-9F82ED12C14B}.png" alt="{46563894-C240-46AF-BDE8-9F82ED12C14B}" style="zoom:75%;" />
 
 high-level languages 会先通过 compiler 转为 assembly，
 
@@ -512,7 +512,7 @@ object files 加上 Libraries 再通过 **linker** 转为 exe
 
 ### Object file format
 
-<img src="note-assets\{576A3515-1195-40ED-BFFE-DD83CD33A708}.png" alt="{576A3515-1195-40ED-BFFE-DD83CD33A708}" style="zoom: 33%;" />
+<img src="note-assets-370\{576A3515-1195-40ED-BFFE-DD83CD33A708}.png" alt="{576A3515-1195-40ED-BFFE-DD83CD33A708}" style="zoom: 33%;" />
 
 自上到下：Header, Text, Data, Symbol table, Relocation table 以及 Debug Info. Debug Info 只有在 compile with "-g" flag 的时候才被 included.
 
@@ -596,7 +596,7 @@ int foo() {
 
 变成 assembly 的部分是：
 
-<img src="note-assets\{65C281EA-D9C9-46B2-91A4-65C20E44E819}.png" alt="{65C281EA-D9C9-46B2-91A4-65C20E44E819}" style="zoom: 50%;" />
+<img src="note-assets-370\{65C281EA-D9C9-46B2-91A4-65C20E44E819}.png" alt="{65C281EA-D9C9-46B2-91A4-65C20E44E819}" style="zoom: 50%;" />
 
 其中我们看到:
 

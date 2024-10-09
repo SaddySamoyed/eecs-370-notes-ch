@@ -277,7 +277,7 @@ Unconditional:
 
 
 
-Unconditional:
+conditional:
 
 1. CBZ      Xt，#simm19
 
@@ -518,7 +518,7 @@ object files 加上 Libraries 再通过 **linker** 转为 exe
 
 **Note: object file 里面都是 machine code. 这里为了清晰使用 assembly 来直观代替.**
 
-<img src="note-assets\{A28A5F7B-8198-41FF-8FC3-0C7578AC4E94}.png" alt="{A28A5F7B-8198-41FF-8FC3-0C7578AC4E94}" style="zoom:33%;" />
+<img src="note-assets-370\{A28A5F7B-8198-41FF-8FC3-0C7578AC4E94}.png" alt="{A28A5F7B-8198-41FF-8FC3-0C7578AC4E94}" style="zoom:33%;" />
 
 1. Header: 用来 keep track of 每个其他 section 的 size
 2. Text: 就是这个 as 文件的 machine code

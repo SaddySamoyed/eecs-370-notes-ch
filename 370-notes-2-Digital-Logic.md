@@ -466,8 +466,6 @@ lw regA, regB, offset，即：
 
 regB = M[regA + offset]; PC++
 
-<img src="C:\Users\19680\AppData\Local\Packages\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\TempState\ScreenClip\{BC3A871C-F364-4751-8867-6DAFBC547D5F}.png" alt="{BC3A871C-F364-4751-8867-6DAFBC547D5F}" style="zoom:67%;" />
-
 write enabled. reg1 在 ALU 中和第三个 mux 里来的 sign extend offset 进行相加，结果进入 data 作为 read memory 的位置，把 read 出来的 memory 又传输给了第二个 mux，于是第一个 mux 代表的  reg 的值被改写为第二个 mux 的 output 的值
 
 这里 R/W 的 0 表示 R，read.
@@ -758,6 +756,8 @@ State 12: 判断如 Data[regA] == Data[regB]，我们把 ALU result 里存储的
 但是我们发现，我们这个思路就**必须设置此时 PC_en =0**. 因为如果此时 PC_en ==1 那么我们的 OR gate 就导致比较结果没用了，不论 Data[regA] == Data[regB] 与否都会更新 PC.
 
 所以此时正确的 control bits 是
+
+Beq4:
 
 <img src="note-assets-370\{EDBDEA0C-F87D-425E-93D2-E395D4376F09}.png" alt="{EDBDEA0C-F87D-425E-93D2-E395D4376F09}" style="zoom:50%;" />
 

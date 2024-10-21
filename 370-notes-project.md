@@ -181,5 +181,113 @@ error checking 和 test files 写完就结束。预计两点左右？大约可�
 
 ### 2r - Recursive Function
 
-就是用 lc2k 写一个 Fibonacci 而已。。
+就是用 lc2k 写一个 Fibonacci 
 
+ C version 如下:
+
+```c
+int fibonacci(int n)
+{
+    if (n == 0 | n == 1) {
+        return n;
+    } else {
+        return fibonacci(n-1) + fibonacci(n-2);
+    }
+}
+```
+
+
+
+
+
+注意以下几个要点:
+
+1. 首先 pass input n 进入 reg1
+   lw         0        1      input        r1 = memory[input]
+2. 我们使用 Stack 这个 Label 表示 Text 和 Data 之后紧接的 memory. 不需要定义它, 可以直接使用. 使用例:
+       sw          5       7       Stack       save return address on stack
+       add         5       6       5           increment stack pointer
+       sw          5       1       Stack       save input on stack
+       add         5       6       5           increment stack pointer
+       add         1       1       1           compute 2*input
+       add         5       6       5           decrement stack pointer
+
+
+
+### 特殊 regs
+
+3. 有些 regs 有特殊的用处:
+   r0  value 0
+   r1  n input to function - ENFORCED
+   r2  local variable for function
+   r3  return value of function - ENFORCED
+   r4  local variable for function
+   r5  stack pointer
+   r6  temporary value (can hold different values at different times, e.g., +1, -1, function address)
+   r7  return address - ENFORCED
+
+
+
+框架是: 
+
+````assembly
+    lw          0       1       n
+    lw          0       4       Faddr        //load function address
+    jalr        4       7                    //call function
+    halt
+    <add your code here>
+n   .fill       7
+    <add your data here>
+````
+
+
+
+步骤是:
+
+1. Accept n as an argument passed in register 1
+2. Store the starting line of your combination function by including the following line in data:
+    Faddr .fill <label_at_start_of_function>
+    <start_of_function> is a label at the start of your function
+3. Use recursion by building a stack frame for each function called
+4. Return the result in register 3
+5. Use register 7 as the return address
+6. DO NOT use a global register
+  A global register is one that all recursive calls to a function use. We should be utilizing the stack to keep track of our computed values.
+
+
+
+我的想法：每个栈都存储一个 这个栈的 n 是多少，对于在 stack pointer 最前面的 stack，如果 n 不是 1 或者 0，那么就拆分 n 变成 n-1, n-2；如果 n 是 0，1，，那么就进入 base case 并把结果加到 r3 上，并且 -- stackpointer. 
+
+
+
+所以思路就是：
+
+并不需要两个 recursive call，而是只需要一次：每一次 recursive call，我们都将 stack pointer 上的 n 和 1，0进行对比，如果是1，0则进入 basecase (add 1/0 到 r3 上) 并 --sp；如果不是1，0 则先--sp 相当于把当前的 n pop 掉，然后再 sp++两次把 n-1, n-2 push 到 sp 上，
+
+
+
+所以我的 FIbo 的逻辑：
+
+1. 如果 sp ==0: halt
+
+2. 比较 n 和 1, 0: 是否进入 base case
+
+   base case: sp--; 
+
+   r3 += n; 
+
+   jalr;
+
+3. 没有 beq: 
+
+   sp--, 
+
+   mem[sp] = n-1; 
+
+   sp++; 
+
+   mem[sp] = n-2; 
+
+   sp++;
+
+   Jalr;

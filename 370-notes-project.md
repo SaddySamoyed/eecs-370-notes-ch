@@ -172,3 +172,14 @@ error checking 和 test files 写完就结束。预计两点左右？大约可�
 
 
 又是经典操作之写错了一个 i/j。。。
+
+
+
+
+
+
+
+### 2r - Recursive Function
+
+就是用 lc2k 写一个 Fibonacci 而已。。
+

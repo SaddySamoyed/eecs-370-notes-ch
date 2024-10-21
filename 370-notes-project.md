@@ -168,3 +168,7 @@ Note：relocation table 也需要全部遍历并读取一次，在最后加上 S
 意外的快，三个小时就只剩 error checking 了
 
 error checking 和 test files 写完就结束。预计两点左右？大约可以开始写 2r 了。写到四点收工吧，学 454
+
+
+
+又是经典操作之写错了一个 i/j。。。

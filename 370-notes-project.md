@@ -94,3 +94,77 @@ I: test1fill
 J: test10-duplicate
 
 (test1像个战神。。)
+
+
+
+
+
+
+
+### 2l - Linker
+
+这个 project 的任务就是：把一堆 object files 连接成一个 .mc
+
+```sh
+./linker file_0.obj file_1.obj ... file_N.obj machine_code.mc
+```
+
+
+
+.mc 也很简单，就是所有的 texts 和所有的 data；最后的 .exe 理论上可以用 p1 中的 simulator 跑
+
+
+
+我们假设：main 总是在第一个 file 里。这就合理多了
+
+
+
+所以这个 project 实际上就是做这件事：我们对于其他指令只需要暴力叠加就可以，
+
+
+
+
+
+我的观点：
+
+1. 首先统计每个文件的 D, T 数量，起一个2d array 表示 第 i 个 obj 的 D/T 从何开始
+
+2. 起两个 Symbol array：一个 defined 一个 undefined
+
+   遍历所有 obj 的 Symbol Table。这个 Symbol array 获取 Symbol Tables 的信息，就是原本的 Symbol Table的 concatenate，加上这个 Symbol 应该在哪个文件里。这个“应该在哪个文件”的变量初始值：
+
+   非 U 的放进 defined array，U 的放进 undefined array.
+
+   然后：
+
+   (1) defined 里有多个定义：error
+
+   (2) 在结束后，我们遍历 undefined array: 除了 Stack 每个都能在 defined 里找到吗？否，error；
+
+   这里，Stack 这个特殊 Label 的起始时 M+N，就是所有D，T 的数量的位置，而其他 Label 都应该 defined.
+
+   
+
+
+
+
+
+做完这件事情之后，暴力链接。然后我们根据位置 array 和 relocation table，对于每个变量的绝对位置进行修改。
+
+也就是说，我们需要解码，修改，再编码
+
+Note：relocation table 也需要全部遍历并读取一次，在最后加上 Stack。
+
+没了。这个 project 就这么点，但是细节绝对复杂。。。
+
+
+
+打开 starter 泪流满面。。。他已经把这些 initialization 都写好了，大概两百行差不多最多了
+
+
+
+
+
+意外的快，三个小时就只剩 error checking 了
+
+error checking 和 test files 写完就结束。预计两点左右？大约可以开始写 2r 了。写到四点收工吧，学 454

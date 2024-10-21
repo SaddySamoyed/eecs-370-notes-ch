@@ -214,7 +214,9 @@ int fibonacci(int n)
 
 
 
-### 特殊 regs
+
+
+#### 特殊 regs
 
 3. 有些 regs 有特殊的用处:
    r0  value 0
@@ -291,3 +293,21 @@ n   .fill       7
    sp++;
 
    Jalr;
+
+
+
+congrats: 非常正确的 implementation，但是不遵守 guideline. 我们在 call function 前不被允许布置 stack 设置初始值。
+
+那我在 stack 上利用一个地方存储一个值，在第一遍的时候设置成 1000，然后每一遍查看：如果是1000就 beq 跳过这个设置不就好了
+
+
+
+，，，赫赫结果这个也被制裁了。我的巧妙方法全被逮捕了
+
+所以只能不可避免地。采用 stack frame 的办法了。但是又没有 frame pointer，纯折磨
+
+重新思路：每一个 stack frame 里都存储两个变量，一
+
+一个是 return address，一个是
+
+个是 return address

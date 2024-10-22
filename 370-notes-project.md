@@ -254,7 +254,7 @@ n   .fill       7
 4. Return the result in register 3
 5. Use register 7 as the return address
 6. DO NOT use a global register
-  A global register is one that all recursive calls to a function use. We should be utilizing the stack to keep track of our computed values.
+    A global register is one that all recursive calls to a function use. We should be utilizing the stack to keep track of our computed values.
 
 
 
@@ -302,12 +302,51 @@ congrats: 非常正确的 implementation，但是不遵守 guideline. 我们在 
 
 
 
-，，，赫赫结果这个也被制裁了。我的巧妙方法全被逮捕了
+，，，赫赫结果这个也被制裁了。我的巧妙方法全被逮捕了。这应该是最 efficient 的解法，但是强制写 recursive function 不允许使用。
 
 所以只能不可避免地。采用 stack frame 的办法了。但是又没有 frame pointer，纯折磨
 
-重新思路：每一个 stack frame 里都存储两个变量，一
 
-一个是 return address，一个是
 
-个是 return address
+重新整理思路：每一个 stack frame 里都存储三个变量，
+
+1. return address，在函数结束后（算出结果）之后要跳到哪个函数的 stack frame 上
+2. n 是多少
+3. return value
+
+所以要确保这些事情
+
+1. 在计算完 F(n-1) 后，要回到本函数 stack frame，重新读取 n，并计算 F(n-2)，然后再回到本函数 stackframe 上
+2. 获取了完整的 return value，函数结束，return value 给 return address，即上一个函数的 return value 上
+
+回到本函数的方法：在另一个 stackframe 读取它的 return address，并且中把 sp 移动到这个位置
+
+
+
+所以函数单次的逻辑是这样的：
+
+Step1: 检查 reg 1 中的 n 是否是 base case 1/0，是的话首先 r3 += n，然后把 n 这个值作为 return value 加到本次的 return address（会是上一个函数的 return value）上；而后检查 return address，如果是 0，说明是最里面的 stack，直接结束，否则将 sp 移动到 return address 上并--，即回到该 stackframe 的 n 上， jalr 回函数起点，准备进行下一次函数 recursion. 
+
+Step 2: n 不是 1/0 的话，在 sp++++ 的位置新建一个 stackframe，把当前函数的 stackframe 中 return value 的位置赋给子函数的 return address，n-1 赋给子函数的 n；把 sp 移动到这个子函数 stackframe 的 n 的位置，更新 reg 1，jalr 回函数起点，准备进行子函数 recursion.
+
+Step 3: 此时 return value 已经得到了 F(n-1) 的值，sp 回到了 n 的位置，还需要再在 sp++++ 的位置新建一个 stackframe，把当前函数的 stackframe 中 return value 的位置赋给子函数的 return address，n-2 赋给子函数的 n，更新 reg 1；把 sp 移动到这个子函数 stackframe 的 n 的位置，jalr 回函数起点，准备进行子函数 recursion.
+
+Step 4: 此时 return value 已经得到了 F(n-1) + F(n-2) 的值，这个函数任务完成；我们把 return value 返回给 return address，sp 移动回 return address，即上一个数的 return value 上再--，回到上一个函数的 n 上，更新 reg 1。如果 return address 是 0: 那么说明是最里层的函数，于是结束了。
+
+
+
+感觉这个逻辑应当是近似完整的了。等下再修改。
+
+考虑情况1: n=1, base case, 最内层
+
+结果：return address == 0，直接结束
+
+情况 2: n=1, 不是最内层
+
+结果：回到上一层的 n
+
+情况3: n=2 
+
+结果：建立两个 stackframe，第一个结束之后 return value得到++，sp回到n上，第二个结束之后 return value +=0，sp回到 n上；进入 Step 4，return value 并移动 sp 到上一个 n 上
+
+感觉非常完美

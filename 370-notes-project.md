@@ -2,7 +2,7 @@
 
 ## Project 1
 
-## 1a - Assembler
+### 1a - Assembler
 
 一个巨大的惨痛经验：一定不要吝惜时间写 test files，写 test files 的时间都是微不足道并且值得的。。。。自己的 test file 就是可以检验程序写的对不对
 
@@ -350,3 +350,47 @@ Step 4: 此时 return value 已经得到了 F(n-1) + F(n-2) 的值，这个函�
 结果：建立两个 stackframe，第一个结束之后 return value得到++，sp回到n上，第二个结束之后 return value +=0，sp回到 n上；进入 Step 4，return value 并移动 sp 到上一个 n 上
 
 感觉非常完美
+
+
+
+#### return address
+
+这个思路最大的问题就是我对 return address 的理解完全错了。。。return address 是回到哪个 instruction，而不是回到 stack 里的哪个地方
+
+所以现在一切都明朗了，，我们只需要在一个 stackframe 里面存：
+
+1. return address: which line of instruction should I excute after finish excuting this function
+2. n: the input to the this function
+3. return value of this stackframe
+
+就可以了
+
+When we call a subfunction, we should use jalr. So, when we build the stackframe of this function, we:
+
+++sp
+
+First put the r7 into mem[sp] as the return address
+
+++sp
+
+put r1 into mem[sp] as the n
+
+++sp
+
+Put 0 into mem[sp] as the original return valued
+
+This finishes the construction of the stack frame.
+
+
+
+每当我们完成一个 function call，我们把 sp 移动到前一个函数的 return value 上，在其上面加上我们这次 call 的 return value。
+
+实际上理解的关键点在于 call stack 的结构：caller 的 stack 一定在我们当前函数的 stack 的紧接着的下方。所以每次我们的 stack operation 都是相同的。
+
+而我们要做的就用 caller-callee save 的思想，在每次 call 前把需要存储的变量放在 stack 上，并且在函数结束后 restore 就好了。
+
+当一次 call 结束后，我们先不用 jalr return，而是把当时的 callee save 的原函数变量：比如 n，全部都restore，然后再 jalr 回当时的 pc++ 的地方，这个函数就完全被恢复了。记得我们每次 call 完都要把 sp 移动到 stack 顶上 Null 的地方，这样就彻底恢复回原状了。
+
+
+
+直接一遍过了。

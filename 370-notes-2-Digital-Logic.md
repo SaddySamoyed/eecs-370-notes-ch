@@ -869,7 +869,7 @@ Multicycle 强于 single cycle 仅在有某些指令花的时间相较于其他�
 
 1. decode instruction
 2. read from reg file (specified by regA, regB of the instruction bits)
-3. 把 regA, regB 的信息，连带 IF/ID 里面 PC 以及 instruction bits (其实它的一部分也可以) 一起传到 ID/EX reg
+3. 把 regA, regB 的信息，连带 IF/ID 里面 PC 以及 instruction bits (只需要 0-2/16-18 以及 opcode) 一起传到 ID/EX reg
 
 <img src="note-assets-370/Screenshot 2024-10-30 at 12.20.36.png" alt="Screenshot 2024-10-30 at 12.20.36" style="zoom:50%;" />
 
@@ -899,17 +899,21 @@ execute 也就是运算. 我们的运算只有这几个情况：add, nor; lw/sw 
 
 ### Stage 4: Memory Op, Mem/WB reg
 
-这个 stage 是专门给 lw/sw/beq 的. 其他 opcode 都会通过 enable bit 忽视这个 stage.
+这个 stage 是专门给 lw/sw/beq 的. 其他 opcode 都会通过 enable bit 忽视这个 stage 的 memory read data 并且把 inst bits 和 ALU result 原封不动传递下去（比如 add/nor）
 
 要做的事情：
 
 1. 把上一步加上 offset (if not 0) 的 PC value 送回 stage 1 上的 PC reg 中.
 
-2. 对于 ALU result (regA+regB)，可能是 read from memory 也可能是 write to memory 也可能是 add/nor 的结果. 
+2. 对于 ALU result (regA+regB)，我们始终保持这个 result 但是其实只有 add/nor 指令下这个 result 有用：regC 的值
 
-   如果根据 inst bits 判断出来是 read from memory，那么就用 ALU result 在 data memory 里搜寻，把搜寻到的 data 放到下一个 stage reg Mem/WB 的 "memory read data" 里; 如果是 write to memory 或者 add/nor (write to reg)，那么我们保持 ALU 结果
+3. 把 ALU result 和 regB 的 content 带进 data memory：
 
-3. 我们把上一步计算出的可能的 Memory Read Data (lw)；ALU 结果 (sw, add/nor) 以及 inst bits 继续传到下一个 stage reg Mem/WB 中
+   如果是 lw，那么 enable read bit 去读 data memory，把 **data memory 里查到的 ALU 地址对应值放进 Mem/WR stage reg 里作为 memory read data**，以待下一步 write back to reg
+
+   如果是 add/nor，memory read data 可以忽略.
+
+   如果是 sw，那么 enable write bit 去写 data memory，**把 regB 的 content 写到 data memory 中 ALU result 的位置.**
 
 这次不用再存 PC value 了，Mem/WB 是最后一个 stage reg.
 
@@ -921,11 +925,8 @@ execute 也就是运算. 我们的运算只有这几个情况：add, nor; lw/sw 
 
 要做的事情：
 
-1. For lw，我们要把 "memory read data" 写回 inst bits 指定的 regB 去. （所以 memory read data，bits 16-18 都要传回去）
-2. For add/nor，我们要把 ALU 结果写回 reg C (bits 0-2) 去
-3. For sw，我们要把 regB 的值
-
-
+1. For lw，我们要把 "memory read data" 写回 inst bits 指定的 regB 去. （上面的 Mux 传值，下面的 mux 传进入哪个 reg，即 bits 16-18）
+2. For add/nor，我们要把 ALU 结果写回 reg C (bits 0-2) 去.（上面的 mux 传值，下面的 mux 传进入哪个 reg，即 bits 0-2）
 
 
 

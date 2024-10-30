@@ -922,8 +922,8 @@ execute 也就是运算. 我们的运算只有这几个情况：add, nor; lw/sw 
 要做的事情：
 
 1. For lw，我们要把 "memory read data" 写回 inst bits 指定的 regB 去. （所以 memory read data，bits 16-18 都要传回去）
-2. For add/nor，我们要把 ALU 结果写回 reg C 去
-3. For sw，我们要把 regB 的
+2. For add/nor，我们要把 ALU 结果写回 reg C (bits 0-2) 去
+3. For sw，我们要把 regB 的值
 
 
 
@@ -977,7 +977,7 @@ Ex2: 蓝色表示 data dependency，红色表示 data hazard
 
 
 
-<img src="note-assets-370/Screenshot 2024-10-30 at 02.52.38.png" alt="Screenshot 2024-10-30 at 02.52.38" style="zoom:50%;" />
+<img src="note-assets-370/Screenshot 2024-10-30 at 02.52.38.png" alt="Screenshot 2024-10-30 at 02.52.38" style="zoom: 67%;" />
 
 
 

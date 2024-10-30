@@ -800,3 +800,225 @@ Multi Cycle Processor 的 CPI: 4.25 左右（但是 clock period 短，比如 2n
 我们更希望的是 CPI 和 clock period 都短
 
 （next time: pipeline processors
+
+
+
+
+
+
+
+
+
+## Lec 13 Pipelining
+
+Multicycle 强于 single cycle 仅在有某些指令花的时间相较于其他指令远更长的情况下。如果每个指令的执行时间差不多，multicycle 甚至不如 single cyce.
+
+我们想要一个性能更好的 datapath: multicycle 是一个好主意，我们可以在 multicycle 的基础上增加一些硬件，让 datapath 一次可以执行多个并行的 cycle: 当上一个指令运行 cycle 2 的时候，我们同时运行下一个指令的 cycle 1. 从而，我们可以通过并行地运行多个 cycles 来达到在单个 cycle 效率和 multicycle datapath 相近的同时，CPI 也接近 1. 这极大提升了性能
+
+这就是 pipeling 的理念.
+
+
+
+
+
+### Implementation Idea
+
+具体 implementation:
+
+1. 我们把 instruction 的运行分成几个 cycles. 和 multicycle datapath 一样.
+
+2. 对于每个 cycle，我们都设计它自己的 datapath，将其称作一个 stage. 
+
+   在 timeline 上的给定时间点，每个 stage (共五个) 都对应着一个指令的执行.
+
+   也就是说：stage 1 在运行第 n+4 个指令的第 1 阶段；...；stage 5 在运行第 n 个指令的第 5 阶段.
+
+   我们创建 **pipeline registers (一系列 flip flops) 在 stages 之间进行交流**. 这样也可以防止 stages 之间相互干扰 (否则如果电流从 stage 1 一只运行到 stage 5 不断进行改写，clock 将难以控制这个精确的时间)
+
+   pipeline registers 就像 multicycle 的 instruction register. 只不过在 pipelining 只，我们对每个 stage  都配备一个 pipelining register. （一共有五个）
+
+3. 每过一个 clock，左边 stage 的指令就带着它更新的信息传递到右边.
+
+
+
+### Stage 1: Fetch, IF/ID reg
+
+要做的事情：
+
+1. index memory by the address in PC （read inst）
+2. PC++ （暂时假设无 branch）
+3. 把这两个信息写进 IF/ID reg
+
+<img src="note-assets-370/Screenshot 2024-10-30 at 12.18.57.png" alt="Screenshot 2024-10-30 at 12.18.57" style="zoom:50%;" />
+
+这里的 IF/ID reg 表示在 stage1: fetch 和 stage2: decode 之间的沟通 reg. 
+
+**IF/ID reg 应当包含的信息是 instruction bits 32 位，以及 PC+1 的 32 位.**
+
+蓝线表示 Mux 的另一个 input，来自 later stages. 
+
+
+
+
+
+
+
+### Stage 2: Decode, ID/EX reg
+
+要做的事情：
+
+1. decode instruction
+2. read from reg file (specified by regA, regB of the instruction bits)
+3. 把 regA, regB 的信息，连带 IF/ID 里面 PC 以及 instruction bits (其实它的一部分也可以) 一起传到 ID/EX reg
+
+<img src="note-assets-370/Screenshot 2024-10-30 at 12.20.36.png" alt="Screenshot 2024-10-30 at 12.20.36" style="zoom:50%;" />
+
+
+
+
+
+### Stage 3: Execute, Ex/Mem reg	
+
+execute 也就是运算. 我们的运算只有这几个情况：add, nor; lw/sw 算地址; beq 算 equal; pc+offset
+
+要做的事情：
+
+1. 运算要么是 对 regA content 和 regB content 要么是对 regA content 和 offset 进行. 我们把 regB content和 inst bits 中的 offset 加一个 mux，与 regA content 过一个 ALU.
+2. PC 和 inst bits 中的 offset 过一个 +
+3. PC 结果，regB content 和 ALU 结果以及 inst bits 传给 stage 4.
+
+
+
+<img src="note-assets-370/Screenshot 2024-10-30 at 12.44.59.png" alt="Screenshot 2024-10-30 at 12.44.59" style="zoom:50%;" />
+
+
+
+
+
+
+
+### Stage 4: Memory Op, Mem/WB reg
+
+这个 stage 是专门给 lw/sw/beq 的. 其他 opcode 都会通过 enable bit 忽视这个 stage.
+
+要做的事情：
+
+1. 把上一步加上 offset (if not 0) 的 PC value 送回 stage 1 上的 PC reg 中.
+
+2. 对于 ALU result (regA+regB)，可能是 read from memory 也可能是 write to memory 也可能是 add/nor 的结果. 
+
+   如果根据 inst bits 判断出来是 read from memory，那么就用 ALU result 在 data memory 里搜寻，把搜寻到的 data 放到下一个 stage reg Mem/WB 的 "memory read data" 里; 如果是 write to memory 或者 add/nor (write to reg)，那么我们保持 ALU 结果
+
+3. 我们把上一步计算出的可能的 Memory Read Data (lw)；ALU 结果 (sw, add/nor) 以及 inst bits 继续传到下一个 stage reg Mem/WB 中
+
+这次不用再存 PC value 了，Mem/WB 是最后一个 stage reg.
+
+
+
+<img src="note-assets-370/Screenshot 2024-10-30 at 14.10.13.png" alt="Screenshot 2024-10-30 at 14.10.13" style="zoom: 33%;" />
+
+### Stage 5: Write Back
+
+要做的事情：
+
+1. For lw，我们要把 "memory read data" 写回 inst bits 指定的 regB 去. （所以 memory read data，bits 16-18 都要传回去）
+2. For add/nor，我们要把 ALU 结果写回 reg C 去
+3. For sw，我们要把 regB 的
+
+
+
+
+
+<img src="note-assets-370/Screenshot 2024-10-30 at 14.17.55.png" alt="Screenshot 2024-10-30 at 14.17.55" style="zoom: 33%;" />
+
+
+
+
+
+## Lec 14 Data Hazard
+
+我的评价是在接受同时运行多个指令这个理念的时候我们首先就会想到两件事：
+
+1. read reg 发生在 stage 2, write back 发生在 stage 5. 
+
+   如果我 stage 3 的 inst 是改变 reg 的，那么它后面 stage 2 的 reg 读到的理应是 stage 3 的 inst 未来在 stage 5 修改过后的 reg value. 但是它却读到了修改前的. 这是一个数据冲突啊
+
+   **(这种隐患叫做 data hazard)**
+
+2. 一个 branch instruction (beq/jalr in our LC2K) 会改变 PC 的值，但是 PC 的值只有在 stage 4 才会改变. 
+
+   如果我们的 beq 在 stage 3, stage 2 fetch 的理应是 PC 更改后的 instruction. 但是实际上按照我们现在的 implementation 我们 fetch 到的是 PC 更改之前的 instruction.  这是一个指令错读
+
+   **(这种隐患叫做 control hazard)**
+
+这节 lec 我们讨论 data hazard.
+
+
+
+Recall：我们的 pipelining 有五个 stage: fetch, decode, execute, memory op, writeback.
+
+
+
+### Data Hazard 和 Data Dependency
+
+以下为一个 **Data Hazard**: 出现 decode 的时候，该 decode 的 reg 有理应完成但当前 time 并未完成的 write back.
+
+<img src="note-assets-370/Screenshot 2024-10-30 at 02.49.14.png" alt="Screenshot 2024-10-30 at 02.49.14" style="zoom:50%;" />
+
+以下作为对比为一个**正常的 data dependency**
+
+
+
+<img src="note-assets-370/Screenshot 2024-10-30 at 02.50.11.png" alt="Screenshot 2024-10-30 at 02.50.11" style="zoom:50%;" />
+
+
+
+Ex2: 蓝色表示 data dependency，红色表示 data hazard
+
+
+
+<img src="note-assets-370/Screenshot 2024-10-30 at 02.52.38.png" alt="Screenshot 2024-10-30 at 02.52.38" style="zoom:50%;" />
+
+
+
+
+
+### Handle Data Hazard 的三个方法
+
+#### 加入 noop 来避免 data hazard
+
+1. 看起来弱智的方法：只要确保我们的 instruction 里面没有 data hazard 就好了.
+
+   天才！
+
+   实际操作是我们在 dependent instructions 之间插入 noops. 因为 decode 和 writeback 差了三个 stages，所以我们插入**至多两个** noops 就可以了.
+
+   也就是说我们**指望 compiler 和 assembler 具有 detect data hazard 的能力.**
+
+<img src="note-assets-370/Screenshot 2024-10-30 at 03.01.31.png" alt="Screenshot 2024-10-30 at 03.01.31" style="zoom:50%;" />
+
+好处是我们不需要更改任何 hardware.
+
+但是问题是：
+
+当新的 processor 出现时，我们总是希望在上面能跑我们旧的代码. 所以
+
+(1) 所有代码都要重新 compile，重现插入 noop. 如果代码数量很多，那么耗时太大
+
+(2) 有时候我们甚至没有 source code 只有 .exe 文件. 我们无法 rewrite it.
+
+并且，这还会使得 program 变得更大，25%-40% 的 instructions 都变成了 noops
+
+并且 program execution 更慢了.
+
+
+
+
+
+
+
+
+
+2. Detect and stall: 检测到 hazard 时，stall the processor until the hazard goes away
+
+3. Detect and forward: 检测到 hazard 时，fix up the pipeline to get the correct value (if possible)

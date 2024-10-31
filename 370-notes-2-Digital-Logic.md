@@ -1018,8 +1018,41 @@ Ex2: 蓝色表示 data dependency，红色表示 data hazard
 
 
 
-
+#### Detect and Stall
 
 2. Detect and stall: 检测到 hazard 时，stall the processor until the hazard goes away
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#### Detect and forward
+
 3. Detect and forward: 检测到 hazard 时，fix up the pipeline to get the correct value (if possible)
+
+
+
+
+
+
+
+
+
+## Lec 15 Control Hazard
+
+
+
+
+

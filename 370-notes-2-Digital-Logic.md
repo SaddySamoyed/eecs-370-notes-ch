@@ -936,6 +936,16 @@ execute 也就是运算. 我们的运算只有这几个情况：add, nor; lw/sw 
 
 
 
+
+
+### Overview
+
+<img src="note-assets-370/Screenshot 2024-10-31 at 00.24.26.png" alt="Screenshot 2024-10-31 at 00.24.26" style="zoom:50%;" />
+
+
+
+
+
 ## Lec 14 Data Hazard
 
 我的评价是在接受同时运行多个指令这个理念的时候我们首先就会想到两件事：
@@ -1036,9 +1046,48 @@ Stall: 把 current instructions 留在 fetch/decode stage 不往前走
 
 
 
+<img src="note-assets-370/Screenshot 2024-10-31 at 00.19.29.png" alt="Screenshot 2024-10-31 at 00.19.29" style="zoom:50%;" />
+
+<img src="note-assets-370/Screenshot 2024-10-31 at 00.18.51.png" alt="Screenshot 2024-10-31 at 00.18.51" style="zoom:50%;" />
+
+实现方法：
+
+让我们在 Decode stage，write back 前加上三个 3 bits 的 latch 块. 我们每个 clock，都把 ex, mem, wb 三个 reg 上的 instruction bits 中的 "dest reg" 传给这三个 latch 块.
+
+**当检测到前两个 ex, mem latch 块上的 reg num和此时 instruction 的 regA, regB num 相同时，那么就 detect 了一个 hazard.**
+
+（注意，**如果是 wb latch 块上的 reg num 和此时 regA, regB 的 num 相同，那么不算 data hazard**！因为我们认为，write back 的速度比 regA, regB 的寻址速度更快，这个时候我们在寻址前已经 write back 了，所以并不是一个 data hazard.）
+
+**当 compare 检测到 hazard 时就停止继续读指令，而是停滞住此时正在 fetch 以及 decode 的指令，一直 impose noop 直到不再检测到 hazard 为止.**
 
 
 
+##### compare 具体实现
+
+compare：通过对两个 3 bits reg 的每一位进行一个 xor，表示其是否不同.
+
+最后再把三个 xor 结果 nor 一下.
+
+nor 结果为 1 当且仅当三个 xor 都是 0 (都相同). 这个时候 hazard detected = 1. 
+
+<img src="note-assets-370/Screenshot 2024-10-31 at 00.28.05.png" alt="Screenshot 2024-10-31 at 00.28.05" style="zoom: 50%;" />
+
+
+
+##### 
+
+
+
+<img src="note-assets-370/Screenshot 2024-10-31 at 10.37.18.png" alt="Screenshot 2024-10-31 at 10.37.18" style="zoom:50%;" />
+
+这个方法比起方法 1，好处在于
+
+1. 修复了 backwards compatibility
+2. 不会使得 program get larger
+
+但是 program get slower 的问题仍然存在.
+
+（总体而言，完全强于方法 1.）
 
 
 

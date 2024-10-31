@@ -1022,7 +1022,15 @@ Ex2: 蓝色表示 data dependency，红色表示 data hazard
 
 2. Detect and stall: 检测到 hazard 时，stall the processor until the hazard goes away
 
+其实和第一个基本是一样的原理。只是第一个是主动修改汇编代码，而 detect and stall 中我们通过调整硬件来实现这个功能
 
+
+
+Detect: compare regA, regB with previous destRegs.
+
+Stall: 把 current instructions 留在 fetch/decode stage 不往前走
+
+把一个 noop pass 到 execute stage.
 
 
 

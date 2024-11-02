@@ -1099,9 +1099,9 @@ nor 结果为 1 当且仅当三个 xor 都是 0 (都相同). 这个时候 hazard
 
 3. Detect and forward: 检测到 hazard 时，fix up the pipeline to get the correct value (if possible)
 
+detect and forward 的 detect 和 detect and stall 里的 detect 不同的点在于四种 data hazard 必须被 treated differently.
 
-
-
+Forward: New bypass datapaths route, 把 data 导到它被需要的地方. 我们需要新的 MUX 和 control 来找到这些 data.
 
 
 

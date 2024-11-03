@@ -1211,9 +1211,7 @@ stall: 一旦检测到 beq/jalr，那么立刻把下一个指令保持在 fetch 
 
 
 
-
-
-
+<img src="note-assets-370/Screenshot 2024-11-03 at 11.36.18.png" alt="Screenshot 2024-11-03 at 11.36.18" style="zoom:50%;" />
 
 
 

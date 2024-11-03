@@ -994,17 +994,15 @@ Ex2: 蓝色表示 data dependency，红色表示 data hazard
 
 
 
-### Handle Data Hazard 的三个方法
+#### Method 1: 加入 noop 来避免 data hazard
 
-#### 加入 noop 来避免 data hazard
+看起来弱智的方法：只要确保我们的 instruction 里面没有 data hazard 就好了.
 
-1. 看起来弱智的方法：只要确保我们的 instruction 里面没有 data hazard 就好了.
+天才！
 
-   天才！
+实际操作是我们在 dependent instructions 之间插入 noops. 因为 decode 和 writeback 差了三个 stages，所以我们插入**至多两个** noops 就可以了.
 
-   实际操作是我们在 dependent instructions 之间插入 noops. 因为 decode 和 writeback 差了三个 stages，所以我们插入**至多两个** noops 就可以了.
-
-   也就是说我们**指望 compiler 和 assembler 具有 detect data hazard 的能力.**
+也就是说我们**指望 compiler 和 assembler 具有 detect data hazard 的能力.**
 
 <img src="note-assets-370/Screenshot 2024-10-30 at 03.01.31.png" alt="Screenshot 2024-10-30 at 03.01.31" style="zoom:50%;" />
 
@@ -1024,11 +1022,7 @@ Ex2: 蓝色表示 data dependency，红色表示 data hazard
 
 
 
-
-
-
-
-#### Detect and Stall
+### Method 2: Detect and Stall
 
 2. Detect and stall: 检测到 hazard 时，stall the processor until the hazard goes away
 
@@ -1062,7 +1056,9 @@ Stall: 把 current instructions 留在 fetch/decode stage 不往前走
 
 
 
-##### compare 具体实现
+
+
+#### compare 具体实现
 
 compare：通过对两个 3 bits reg 的每一位进行一个 xor，表示其是否不同.
 
@@ -1093,9 +1089,7 @@ nor 结果为 1 当且仅当三个 xor 都是 0 (都相同). 这个时候 hazard
 
 
 
-
-
-#### Detect and forward
+### Method 3: Detect and forward
 
 3. Detect and forward: 检测到 hazard 时，fix up the pipeline to get the correct value (if possible)
 
@@ -1103,11 +1097,129 @@ detect and forward 的 detect 和 detect and stall 里的 detect 不同的点在
 
 Forward: New bypass datapaths route, 把 data 导到它被需要的地方. 我们需要新的 MUX 和 control 来找到这些 data.
 
+做法：在每个 stage reg 上放一个 extra register
 
+<img src="note-assets-370/Screenshot 2024-11-03 at 00.09.20.png" alt="Screenshot 2024-11-03 at 00.09.20" style="zoom:50%;" />
+
+这个 extra reg 储存：
+
+(1)  现在是否有 hazard
+
+(2)  一个 hazard number: 每一个表示一种 hazard 的 sol —— where to grab it from, where to send it to. 
+
+
+
+#### Data Hazard 的所有类型
+
+Note: hazard 至多差距两个 stages，并且要么是 regA 是另一个的 dest reg，要么是 regB 是另一个的 dest reg. **因而基本有四种情况  (1/2 stage ahead; regA/regB)**
+
+举例：比如这里，nor 的 **regA** 是 **ahead 它 1 stage** 的 dest reg. 理应 21，当前 10
+
+我们用 H1 来 encode 这种 hazard. 
+
+我们用 H1-H4 来表示这
+
+但是，lw/sw 确实有一种另类的 data hazard: 即，**sw 的 regA 是前面的 lw 存储进去的 reg. 比如这里的 4,5.** sw 在 Stage 2 就应该读数据了，lw 的结果在 Stage 5 才会 write back. 这里有三个 Stages 的差. 
+
+
+
+（plus：我考虑过的另一个问题是：如果前一个是 store word, 后一个 load word 的地址正好是刚刚 store 的地址呢？这会不会造成一个 hazard。。但是仔细想想就多虑了，因为 memory operation，读数据是 Stage 4 的。所以不论如何，等到 lw 真的读数据的时候，要么 sw 早就已经存了，要么 sw 正好是 Stage 5，但是 write back 的速度更快，刚好比 lw 读取早存好. ）
+
+**所以一共只有这五个 data hazard 类型.**
+
+
+
+<img src="note-assets-370/Screenshot 2024-11-03 at 00.15.24.png" alt="Screenshot 2024-11-03 at 00.15.24" style="zoom:50%;" />
+
+
+
+#### 处理前四种 Data hazard
+
+那么如何导数据呢？答案是，在 move 到下一个 stage 前，在通路上**加上一个 mux**. 根据我的 data hazard reg 的 encode (1/4)，去判断从下一个/下两个 stage 中的哪一个的 stage reg 上 grab value，倒入到 regA/regB 上. 
+
+当当前 stage 的 data hazard reg 检测到 hazard 存在时，我们就把这个 mux 的 enable bits 设置为从对应的地方导入的数据 (下一个/下两个；regA/regB) 
+
+需要把下两个 Stage reg 的 regA/regB value 部分导入进来.
+
+<img src="note-assets-370/Screenshot 2024-11-03 at 00.22.41.png" alt="Screenshot 2024-11-03 at 00.22.41" style="zoom:50%;" />
+
+
+
+
+
+#### 处理 sw/lw 的 data hazard
+
+我们这里要结合 stall 的策略.
+
+
+
+如果 lw 在 sw 前面两个位置，那么 sw stage3 的时候 lw 正好 stage5. 
+
+那我们直接把 write back 的结果导入一份到 stage 3 的 mux 就完事了.
+
+<img src="note-assets-370/Screenshot 2024-11-03 at 10.32.04.png" alt="Screenshot 2024-11-03 at 10.32.04" style="zoom:50%;" />
+
+
+
+如果 lw 在 sw 前一个位置，那么我们则必须在 Stage 1 detect 到 hazard 的时候就在前面插入一个 noop，强行把 lw 和 sw 隔开两个位置.
+
+然后一样，sw stage3 的时候 lw 正好 stage5，直接把 write back 的结果导入一份到 stage 3 的 mux 就完事了.
+
+<img src="note-assets-370/Screenshot 2024-11-03 at 10.31.14.png" alt="Screenshot 2024-11-03 at 10.31.14" style="zoom:50%;" />
+
+<img src="note-assets-370/Screenshot 2024-11-03 at 10.34.44.png" alt="Screenshot 2024-11-03 at 10.34.44" style="zoom:50%;" />
 
 
 
 ## Lec 15 Control Hazard
+
+### beq 的流程
+
+Stage1: fetch inst
+
+Stage2: read operands
+
+Stage3: 计算 target inst address；test for equality
+
+Stage4: if equal，write PC = target inst address；otherwise PC ++
+
+Stage5: 什么也不干
+
+
+
+
+
+让我们 check 紧接 beq 的 instructions: 在 fetch 阶段就 fetch 错了. 后面全部都错了.
+
+![Screenshot 2024-11-03 at 10.41.45](/Users/fanqiulin/Library/Application Support/typora-user-images/Screenshot 2024-11-03 at 10.41.45.png)
+
+
+
+### Method 1: 在 assembly 层面避免 branch
+
+把 branch 全部写成顺序，把原本的函数体内所有 instructions 都换成 predicated instructions (比如 ARM 里的 conditions regs. 把 add 换成 add.pred)
+
+但这只能在最基本的程序上作效。我们没法把每个 branch 都换掉
+
+### Method 2: Detect and stalll
+
+detect: 检测指令是不是 beq / jalr
+
+stall: 一旦检测到 beq/jalr，那么立刻把下一个指令保持在 fetch 阶段不要 fetch.
+
+
+
+
+
+
+
+
+
+
+
+### Method 3: Speculate and squash-if-wrong
+
+
 
 
 

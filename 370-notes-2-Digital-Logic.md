@@ -1,4 +1,8 @@
-# ·Note Part2: Digital Logic
+# Note Part2: Digital Logic
+
+[TOC]
+
+
 
 ## Lec 8 (1): 表示 float nums
 
@@ -992,11 +996,9 @@ Ex2: 蓝色表示 data dependency，红色表示 data hazard
 
 
 
+### Method 1: 加入 noop 来避免 data hazard
 
-
-#### Method 1: 加入 noop 来避免 data hazard
-
-看起来弱智的方法：只要确保我们的 instruction 里面没有 data hazard 就好了.
+只要确保我们的 instruction 里面没有 data hazard 就好了.
 
 天才！
 
@@ -1032,7 +1034,7 @@ Ex2: 蓝色表示 data dependency，红色表示 data hazard
 
 Detect: compare regA, regB with previous destRegs.
 
-Stall: 把 current instructions 留在 fetch/decode stage 不往前走
+Stall: 把 current instructions 留在 decode stage 不往前走
 
 把一个 noop pass 到 execute stage.
 
@@ -1056,6 +1058,10 @@ Stall: 把 current instructions 留在 fetch/decode stage 不往前走
 
 
 
+只要 dependent inst 打了 write back stage，hazard 就算解决了。所以，对于 dependent 在前一个指令的 data hazard，我们只需要插入两次 noop，前一个指令就到 Stage 5 Writeback 了；对于 dependent 在前两个指令的 data hazard，我们只需要插入一次 noop.
+
+
+
 
 
 #### compare 具体实现
@@ -1069,8 +1075,6 @@ nor 结果为 1 当且仅当三个 xor 都是 0 (都相同). 这个时候 hazard
 <img src="note-assets-370/Screenshot 2024-10-31 at 00.28.05.png" alt="Screenshot 2024-10-31 at 00.28.05" style="zoom: 50%;" />
 
 
-
-##### 
 
 
 
@@ -1205,7 +1209,7 @@ Stage5: 什么也不干
 
 detect: 检测指令是不是 beq / jalr
 
-stall: 一旦检测到 beq/jalr，那么立刻把下一个指令保持在 fetch 阶段不要 fetch.
+stall: 一旦检测到 beq/jalr，那么立刻把下一个指令保持在 fetch 阶段. 这样下一次还是 fetch 的同一个指令. 等于卡死在这里了
 
 
 
@@ -1215,11 +1219,136 @@ stall: 一旦检测到 beq/jalr，那么立刻把下一个指令保持在 fetch 
 
 
 
+一直做这件事情三次，知道 beq 到 stage 5: 我们已经在 stage 4 结束的时候把 PC 的正确 address 传回去了，那么这次 fetch 的指令就是正确的指令了
+
+<img src="note-assets-370/Screenshot 2024-11-03 at 16.07.44.png" alt="Screenshot 2024-11-03 at 16.07.44" style="zoom:50%;" />
+
+
+
+#### CPI 分析
+
+beq 的 detect and stall 添加的指令是固定的：每次都添加三个 noop. 
+
+意味着每次遇到 beq，CPI 都只能增加.
+
+
+
+<img src="note-assets-370/Screenshot 2024-11-03 at 16.12.21.png" alt="Screenshot 2024-11-03 at 16.12.21" style="zoom:50%;" />
+
+
+
+
+
 ### Method 3: Speculate and squash-if-wrong
 
+想法：beq 只有在 equal 的时候运行，不 equal 就不会运行. 
+
+而 detect and stall 不论 beq 是否 equal，都会执行同样的 stall 策略.
+
+这意味着我们可以优化策略：
+
+1. 假设不 equal，把 beq 当成 noop.
+
+2. 如果第 Stage 3 发现 beq 是 equal 的，那么错误执行的两个指令如何处理？解决方案是我们不去完成这三个指令， 而是一直把指令停止在它们的阶段，等待 beq 结束后的两个新指令把它们顶掉.
+
+这个方法的可行点在于：前两个 Stage 不会 write back. 所以我们执行了错误的指令完全没关系。可以无痕覆盖掉。
 
 
 
 
 
+#### Squash 具体做法
 
+当 Stage 3 检测到 beq equal 时，我们 send 三个 noops 分别到 decode, excute 和 memory 三个 stage，并把 ALU 结果（正确的地址）send 回 PC
+
+于是下一步就当作无事发生，正常执行正确指令了
+
+<img src="note-assets-370/Screenshot 2024-11-03 at 16.22.53.png" alt="Screenshot 2024-11-03 at 16.22.53" style="zoom:50%;" />
+
+
+
+
+
+这个情况下的 performance 和 Method 2 的一模一样. 不过因此它是一个绝对的优化，因为在 equal 时和 Method 2 一样，不 equal 时完全不增加 CPI，比 Method 2 好.
+
+<img src="note-assets-370/Screenshot 2024-11-03 at 16.23.35.png" alt="Screenshot 2024-11-03 at 16.23.35" style="zoom:50%;" />
+
+processor 一般总会使用这种方法.
+
+
+
+### 除了 Data Hazard 和 Control Hazard 外的 Exceptions
+
+a little bit digression: 当 something unexpected, other than data/control hazards 出现的时候怎么办？比如说出现了一个 divide by zero
+
+处理方法：一个 ISA 被设计的时候会设计一些 "exception handler" 函数. 当出现意外情况就会 branch to 某个 exception handler 函数，squash 它之后的几个 instructions. 
+
+而平时的通常情况下，这些 exceptions 的判断类似于 beq 的 "not taken"，不影响正常运行.
+
+
+
+### CPI Calculation Problems
+
+#### Problem 1: 计算 CPI 和 TPI
+
+
+
+<img src="note-assets-370/Screenshot 2024-11-03 at 16.43.15.png" alt="Screenshot 2024-11-03 at 16.43.15" style="zoom:50%;" />
+
+假设 20% 的 lw stall for 1 cycle
+
+80% 的 beq not taken. 使用 speculate and squash 策略，其中 speculate 使用 "always not taken 假设"
+
+于是 CPI = $1 + 0.1 0.2*1 + 0.25*0.2 * 3 =1.17 $
+
+假设 clock frequency 100Mhz (于是1 cycle: 10ns)
+
+那么 Time per instruction: 1.17 * 10ns =11.7 ns
+
+(Time per instruction  = CPI * Time/Cycle)
+
+
+
+#### Problem 2: Adding a PC Writeback
+
+试想：如果我们在 Execute Stage 额外加一次和 Mem op stage 一样的 PC write back，那么我们就可以只插入两个 noops 而不是三个，以 resolve control hazard 了.
+
+于是 CPI 将减少： 
+
+CPI = $1 + 0.1 0.2*1 + 0.25*0.2 * 2 =1.12 $
+
+但是，我们关心的其实不是 CPI 而是 TPI. 
+
+Question: Will TPI be decreased?
+
+Answer: Depends on the cost of adding the MUX&Writeback. 因为这可能会增加一个 clock 的时间。
+
+Note：**一个 clock 的时间是所有 5 个 Stage 中最长的一个 Stage 的时间！** 如果我们增加了这个行为后，Stage 3 的运行时间变得比原本的五个 Stage 中最长运行时间的 Stage 更长了，那么我们就不得不增加 clock period 即 Time/Cycle，也就是减少 clock frequency. 这样所有的 instructions 执行时间都变慢了！
+
+最后是否 TPI 更小需要看 CPI 的减少和 Time/Cycle 的增加谁更显著.
+
+
+
+#### Problem 3: 10 stage pipeline
+
+现在我们新引入一个 pipeline 架构：10 Stages
+
+<img src="note-assets-370/Screenshot 2024-11-03 at 17.44.37.png" alt="Screenshot 2024-11-03 at 17.44.37" style="zoom:50%;" />
+
+我们于是要抓住解决 hazard 的核心：
+
+##### 解决 hazard 的逻辑总结
+
+Data Detect and stall: 把新指令留在 decode stage, **impose noop 直到 dependent 指令的下一个 Stage 是 writeback stage 的时候 move 它.**
+
+Data Detect and forward: 灵活检测导 reg. 只有 lw/sw 需要处理 stall. 当出现 sw 需要 lw 存进的 reg 时，**插入 noop 确保 lw 到 writeback stage 的时候 sw 运行 execute 就可以了**
+
+Control Detect and stall: **把 beq 的下个指令留在 fetch 直到 PC 传回的 Stage 结束之后再正常 fetch.**
+
+Control Speculate and squash-if-wrong: **在 beq 的 eq 判断前一切正常，判断后如果是 true 则把从 decode Stage 一直到 beq 的下一个 Stage reg 上都 insert noop.**
+
+
+
+于是 CPI = $1 + 0.1*0.2*(9-5) + 0.25*0.2*(7-1) =$1.38$
+
+pipeline 的增加会伴随 clock period 减少。假设 clock period 变成了原来的一半，那么 TPI 将大大增加.

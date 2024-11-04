@@ -1352,3 +1352,150 @@ Control Speculate and squash-if-wrong: **在 beq 的 eq 判断前一切正常，
 于是 CPI = $1 + 0.1*0.2*(9-5) + 0.25*0.2*(7-1) =$1.38$
 
 pipeline 的增加会伴随 clock period 减少。假设 clock period 变成了原来的一半，那么 TPI 将大大增加.
+
+
+
+
+
+### Branch Prediction: 更多 Speculation 策略
+
+#### 需要 predict 哪些东西
+
+speculation 即猜测。但是其实我们上面只讲了一种策略：猜测总是 beq 总是不 equal.
+
+我们也可以 make 其他猜测。这就是 branch prediction
+
+
+
+branch prediction 的目的：尽可能地减少 noop 插入的次数，从而降低 CPI.
+
+我们目前的 branch prediction 策略：beq 总是不 equal，是一个最简单的策略。它的结果是一旦 equal 则必然插入三个 noops。这显然不是最优的。
+
+我们需要的是：在 branch 结果是 equal 的时候也可能顺利进行，不去 squash 的策略。
+
+意思是：当我们预测一个指令是 branch 的时候，我们直接预测并跳到它的 target address 上，最后如果不 take 就 squash 并回归原来的正常的指令。
+
+为此我们需要 predict 的东西有：
+
+1. **某个 instruction 是否是 branch**
+2. **如果是 conditional branch 的话，condition 结果（比如我们的 beq: 是否 equal?**
+3. **如果 take 了这个 branch，那么 branch address 是什么**
+
+（看到这里我的感觉：很显然如果对是否 branch 的预测影响到正常其他指令的运行就得不偿失了，所以这里所谓的 "预测是否是 branch"  一定只是储存已经遇到过的 branch，当再次遇到的时候直接模仿上一次的行为罢了。所以实际上根本不是预测而是 remember old route.）
+
+
+
+
+
+
+
+#### Predict branch & branch address
+
+Idea: 记得遇到过的 branches.
+
+注意到：同一个 branch 的 Target address 总是相同的。所以当我们预测一个 instruction 是 branch 的时候，我们同时预测了 3.
+
+所以我们的 idea: **每次我们执行 branch 就 store 当前 PC 的地址，以及它的 target address.** 
+
+看起来没什么用，但是其实很有用。因为这样就很好地处理了循环：**试想在一个循环里，我们除了最后一次 loop 之外，其他每次 loop 都会 take branch 并且 branch 到相同的地方。**
+
+
+
+具体实现方法：当我们遇到一个 branch 时，我们记住它和它的 target address.
+
+每次在 fetch 的时候，我们都留意当前的 PC 地址：如果是我们记住的 branch instruction 的地址，我们就根据 branch direction 的 predict 结果来决定是否直接 branch 到 branch address. 
+
+<img src="note-assets-370/Screenshot 2024-11-03 at 19.34.18.png" alt="Screenshot 2024-11-03 at 19.34.18" style="zoom:50%;" />
+
+
+
+
+
+所以整个逻辑就是这样的：
+在 fetch stage，我们查看 target addresses 的 cache，看看我们当前的 PC 在 +1 后是否是某个 target address
+
+如果不是则正常运行.
+
+如果是的话，我们再查看 direction predictor：这次 branch 是否选择应预测为 take.
+
+如果 take: 直接 fetch target address
+
+如果不 take: 正常运行.
+
+
+
+![Screenshot 2024-11-03 at 19.35.10](note-assets-370/Screenshot 2024-11-03 at 19.35.10.png)
+
+
+
+
+
+#### predict branch direction
+
+我们还缺少最后一个组件：predict 是否应该 take 某次 branch
+
+有两种主要的类别：static/dynamic method
+
+Static 表示 predict once during compilation，execution 时总是 predict 相同结果（比如我们最开始的方案：总是 predict not branch）
+
+Dynamic 表示在 execution 时 prediction change over time.
+
+Dynamic VS Static strategies 是 Computer Architecture 的一个常见的 topic
+
+
+
+
+
+##### Static branch prediction
+
+1. always predict taken
+2. always predict not taken
+3. **backward taken, forward not taken (BTFN)**
+
+根据实践经验：大概 60% 的 conditional branch (in LC2K, beq) 都是会被 taken 的. 所以 always predict taken 在概率上优于 always not taken
+
+BTFN 是一种不错的 static 策略，因为 Backwar branch 通常是 loop，而我们知道 loop 除了末尾都会 take branch. 所以准确率应该不错.
+
+
+
+##### Dynamic branch prediction
+
+1. last time predictor: 最简单的 dynamic branch prediction. 总是给出上一次 branch 是否 taken 的 execution 结果
+
+   example: TTTTTTNNNNN，90%的准确率
+
+   always mispredict loop 的第一个和最后一个 branch (N-2/N 的准确率 for loop)
+
+   0% 准确率 for TNTNTNTNTNTN....
+
+   <img src="note-assets-370/Screenshot 2024-11-03 at 20.43.46.png" alt="Screenshot 2024-11-03 at 20.43.46" style="zoom:50%;" />
+
+   
+
+2. 改进 last time predictor: 
+
+   只有在连续两次错误后才更改 pred
+
+   
+
+   <img src="note-assets-370/Screenshot 2024-11-03 at 20.45.24.png" alt="Screenshot 2024-11-03 at 20.45.24" style="zoom:50%;" />
+
+   Ex: 
+
+   
+
+   <img src="note-assets-370/Screenshot 2024-11-03 at 21.08.57.png" alt="Screenshot 2024-11-03 at 21.08.57" style="zoom:50%;" />
+
+
+
+
+
+实际上，
+
+pred not taken: ~50% accuracy
+
+pred taken: ~60% accuracy
+
+last time predictor: ~80% accuracy
+
+realistic predictor(使用ml, ml system): ~96% accuracy

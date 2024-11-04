@@ -208,9 +208,82 @@ temporal locality 即：如果一个 given memory location is referenced now, it
 
 
 
-Example: 我们采用一个简化的模型. 这里 Cache 的容量一共就 2 lines，每个 line 由 4 bit tag, 1 byte bio
+Example: 我们采用一个简化的模型. 这里 Cache 的容量一共就 2 lines，每个 line 由 1 bit status,  4 bit tag, 8 bit data 组成
+
+每当 lw 时，我们首先遍历 cache，找不到的话：
+
+1. 记录一个 Cache miss；
+2. 在 memory 找，并且把找到的数据的 位置作为 tag，内容作为 data 放进 Cache 的 LRU 的地方，Status 设置为 1
+3. 从 Cache 中数据进入 reg.
 
 
+
+<img src="note-assets-370/Screenshot 2024-11-04 at 11.27.21.png" alt="Screenshot 2024-11-04 at 11.27.21" style="zoom:67%;" />
+
+<img src="note-assets-370/Screenshot 2024-11-04 at 11.28.24.png" alt="Screenshot 2024-11-04 at 11.28.24" style="zoom: 67%;" />
+
+<img src="note-assets-370/Screenshot 2024-11-04 at 11.30.39.png" alt="Screenshot 2024-11-04 at 11.30.39" style="zoom:67%;" />
+
+
+
+遍历这块 Cache，找到的话：
+
+1. 记录一个 Cache hit
+2. 直接从 Cache 里把数据导进 reg
+
+<img src="note-assets-370/Screenshot 2024-11-04 at 11.32.03.png" alt="Screenshot 2024-11-04 at 11.32.03" style="zoom:67%;" />
+
+
+
+
+
+#### 如果 Cache filled
+
+当 Cache 被填满的时候，我们如果遇到一个新的 Cache miss，意味着又要放数据进来。我们只能 kick out 一个相对 LRU 的数据
+
+<img src="note-assets-370/Screenshot 2024-11-04 at 11.34.26.png" alt="Screenshot 2024-11-04 at 11.34.26" style="zoom:67%;" />
+
+这一块的逻辑应该是：这里的模型过于简单，实际上 status bit 会不止一个，最后从头到尾遍历比较 status bits 来找出最 LRU 的数据
+
+这一部分在 next lecture
+
+
+
+### Hit/Miss rate
+
+HIt 指 data for a memory access 在 cache 中被找到
+
+Miss 指 data for a memory access 在 cache 中没被找到
+
+我们想要一个比较高的 Hit/Miss rate 
+
+
+
+Ex: 
+
+假设 Cache 的 access time 是 1 cycle
+
+Main Memory 的 access time 是 100 cycles.
+
+如果我们有 90% 的 Hit/Miss rate，那么 average memory latency 是多少？
+
+$1*0.9 + (1+100)*0.1 = 11.0$
+
+
+
+使用公式：
+
+average latency = cache latency  + memory latency * miss rate
+
+$1 + 100*0.1 = 11.0$
+
+
+
+因而要优化 average latency，我们可以选择
+
+1. 优化 memory latency
+2. 优化 cache latency
+3. 降低 miss rate
 
 
 

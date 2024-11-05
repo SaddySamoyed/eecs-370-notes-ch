@@ -399,6 +399,65 @@ This finishes the construction of the stack frame.
 
 
 
-## Project 3
+## Project 3hh
 
-Stage 1: 
+我们把所有信息都封装在 state 里. state 等于当前运行的 clock cycle. 其中包含了 5 个 state regs.每个 state reg 都包含 state 的信息.
+
+state 还包括了 insterMem, DataMem 和正常的 regs, 以及 pc reg.
+
+
+
+```c
+typedef struct IFIDStruct {
+    int instr;
+	int pcPlus1;
+} IFIDType;
+
+typedef struct IDEXStruct {
+    int instr;
+	int pcPlus1;
+	int valA;
+	int valB;
+	int offset;
+} IDEXType;
+
+typedef struct EXMEMStruct {
+    int instr;
+	int branchTarget;
+    int eq;
+	int aluResult;
+	int valB;
+} EXMEMType;
+
+typedef struct MEMWBStruct {
+    int instr;
+	int writeData;
+} MEMWBType;
+
+typedef struct WBENDStruct {
+    int instr;
+	int writeData;
+} WBENDType;
+
+```
+
+
+
+### Hazard
+
+data hazard not involving lw: 直接 forward
+
+data hazard involving lw: 只有这样一种情况需要 stall，即一个 lw followed by 一个 使用 lw 的 regB（lw到的地方）的 inst.  那么把后面一个 inst stall 
+
+### Initialization
+
+把变量全部 Initialize 之后我们需要 printstate().
+
+
+
+
+
+### Stage 1: fetch
+
+1. 把 ex/mem 的 target 赋给 stage
+2. if PC enable, 

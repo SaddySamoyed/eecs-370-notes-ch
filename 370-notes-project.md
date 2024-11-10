@@ -399,7 +399,7 @@ This finishes the construction of the stack frame.
 
 
 
-## Project 3hh
+## Project 3
 
 我们把所有信息都封装在 state 里. state 等于当前运行的 clock cycle. 其中包含了 5 个 state regs.每个 state reg 都包含 state 的信息.
 
@@ -443,17 +443,23 @@ typedef struct WBENDStruct {
 
 
 
+### WB stage reg: 由于没有 internal forwarding 
+
+比起 lecture design: 我们的 Project design 最大的区别是没有 internal forwarding. 即 read 和 write 同一个数据无法在同一个 clock 内完成
+
+其影响：原本我们假定在一个 clock 里可以 write back data to reg file in Stage 5, 并且在此之后 ID stage 上的指令能够立马读取到这个 write back 的 reg 的 data.
+
+但是 project 里不行。所以我们有一个新多出来的 WB stage reg 来存储 write back 的数据。
+
+并且，我们原本 stall 两个 cycle 的 beq 需要 stall 三个 cycle；对于 data hazard 的 detect and forward，我们还需要 detect data hazard between WB stage 的 instruction（write to 了哪个 reg）和 ID stage 的 instruction（regA/B）是否有相同的.
+
+
+
 ### Hazard
 
+需要 stall 的 hazard: 只有 lw  followed by 使用 lw reg2 的 inst. （理论上，sw 后面一个 Stage 紧跟 lw 也会需要 stall. 但是这个 project 貌似不考虑
+
 data hazard not involving lw: 直接 forward
-
-data hazard involving lw: 只有这样一种情况需要 stall，即一个 lw followed by 一个 使用 lw 的 regB（lw到的地方）的 inst.  那么把后面一个 inst stall 
-
-### Initialization
-
-把变量全部 Initialize 之后我们需要 printstate().
-
-
 
 
 
@@ -461,3 +467,49 @@ data hazard involving lw: 只有这样一种情况需要 stall，即一个 lw fo
 
 1. 把 ex/mem 的 target 赋给 stage
 2. if PC enable, 
+
+
+
+
+
+### Stage 2: decode 
+
+
+
+
+
+
+
+
+
+### Stage 3: execute
+
+
+
+
+
+
+
+
+
+
+
+### Stage 4: memeory op
+
+
+
+
+
+
+
+
+
+### Stage 5: Writeback
+
+比起 lecture design: 我们的 Project design 最大的区别是没有 internal forwarding. 即 read 和 write 同一个数据无法在同一个 clock 内完成
+
+其影响：原本我们假定在一个 clock 里可以 write back data to reg file in Stage 5, 并且在此之后 ID stage 上的指令能够立马读取到这个 write back 的 reg 的 data.
+
+但是 project 里不行。所以我们有一个新多出来的 WB stage reg 来存储 write back 的数据。
+
+并且，我们原本 stall 两个 cycle 的 beq 需要 stall 三个 cycle；对于 data hazard 的 detect and forward，我们还需要 detect data hazard between WB stage 的 instruction（write to 了哪个 reg）和 ID stage 的 instruction（regA/B）是否有相同的.

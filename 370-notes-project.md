@@ -461,50 +461,11 @@ typedef struct WBENDStruct {
 
 data hazard not involving lw: 直接 forward
 
-
-
-### Stage 1: fetch
-
-1. 把 ex/mem 的 target 赋给 stage
-2. if PC enable, 
+control hazard：非常简化，没有 forward 而是直接 stall. 
 
 
 
-
-
-### Stage 2: decode 
-
-
-
-
-
-
-
-
-
-### Stage 3: execute
-
-
-
-
-
-
-
-
-
-
-
-### Stage 4: memeory op
-
-
-
-
-
-
-
-
-
-### Stage 5: Writeback
+### Forward
 
 比起 lecture design: 我们的 Project design 最大的区别是没有 internal forwarding. 即 read 和 write 同一个数据无法在同一个 clock 内完成
 
@@ -513,3 +474,25 @@ data hazard not involving lw: 直接 forward
 但是 project 里不行。所以我们有一个新多出来的 WB stage reg 来存储 write back 的数据。
 
 并且，我们原本 stall 两个 cycle 的 beq 需要 stall 三个 cycle；对于 data hazard 的 detect and forward，我们还需要 detect data hazard between WB stage 的 instruction（write to 了哪个 reg）和 ID stage 的 instruction（regA/B）是否有相同的.
+
+
+
+所以核心就是
+
+在 ex 阶段，当检查到 regA/regB 是前面三个 cycle 的 dest reg 时：
+
+forward 前三个 Stage (last ex, last mem, last wb) 的 stage reg 中的内容（ex.aluresult, mem,writeData, wb.writeData) 成为 real regA/regB
+
+这里的 real regA 仅仅是用来 ALU 运算的。并不进行储存。
+
+real regB 还要存在 ex/mem reg 里
+
+
+
+dest reg 只有那么几个东西有，即会改写：
+
+1. add/nor：regC
+2. lw：regB
+
+
+

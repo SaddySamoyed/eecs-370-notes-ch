@@ -297,7 +297,7 @@ $1 + 100*0.1 = 11.0$
 
 
 
-## Lec 17 - Improving Caches
+## Lec 17 - Improving Caches     
 
 
 

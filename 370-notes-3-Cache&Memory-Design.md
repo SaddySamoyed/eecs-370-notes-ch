@@ -295,5 +295,14 @@ $1 + 100*0.1 = 11.0$
 
 ## Lec 17 - Improving Caches     
 
+原本的 cache 模型：3 个 tag bit，表示这个 cache 中的 data 在 memory 的哪里。
 
+问题有这么些：
 
+1. 3 个 tag bit 只能表示 8 个位置。
+
+   但是这里的 memory 有 16 个位置（现实中，2^32/64 个位置）；不足以表示完整的 memory
+
+2. 我们 cache 的 data 容量只有 2. 基本上很难 hit. 就算一个 loop 只有两个 local variable，也足以顶掉用来 iterate 的 变量 i，使得几乎无法 hit.
+
+我们想要：cache 能够储存尽量

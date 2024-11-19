@@ -295,7 +295,19 @@ $1 + 100*0.1 = 11.0$
 
 ## Lec 17 - Improving Caches     
 
-原本的 cache 模型：3 个 tag bit，表示这个 cache 中的 data 在 memory 的哪里。
+原本的 cache 模型：4 个 tag bit，表示这个 cache 中的 data 在 memory 的哪里。
+
+这里的 memory 就是 4-bit 的，一个 tag 对应的就是一条地址.
+
+问题：能够容纳的条数太少。假设我们一共有
+
+我们想要在能够寻址整个 memory 的同时，还能够尽量地多存储一些条数.
+
+Idea: 
+
+
+
+
 
 问题有这么些：
 

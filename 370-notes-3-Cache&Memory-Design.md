@@ -306,3 +306,40 @@ $1 + 100*0.1 = 11.0$
 2. 我们 cache 的 data 容量只有 2. 基本上很难 hit. 就算一个 loop 只有两个 local variable，也足以顶掉用来 iterate 的 变量 i，使得几乎无法 hit.
 
 我们想要：cache 能够储存尽量
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Lec 18 - Direct-mapped cache
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Lec 19 - Set-Associative cache
+
+
+

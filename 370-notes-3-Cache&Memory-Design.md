@@ -180,20 +180,18 @@ Cache holds the data we think is most likely to be referenced.
 
 
 
-### Locality
+### temporal locality
 
 我们在 cache 中储存的时候需要考虑这些问题
 
 1. cache 是否足够大，以每次遇到需要储存的东西都能够有空储存？
 2. 如何选择 what to keep in cache?
 
-我们有一个 locality 的原则，分为 temporal locality 和 spatial locality
+我们有一个 locality 的原则：程序具有 temporal locality 和 spatial locality
 
 
 
-#### temporal locality
-
-temporal locality 即：如果一个 given memory location is referenced now, it will probably be used again in the near future.
+**temporal locality 即：如果一个 given memory location is referenced now, it will probably be used again in the near future.**
 
 （显然的，因为我们写代码肯定会用一个 variable multiple times）
 
@@ -201,14 +199,41 @@ temporal locality 即：如果一个 given memory location is referenced now, it
 
 
 
-因而我们的 cache ：
+cache 可以利用这个特性 ：
 
 1. 对于 just accessed 的 data 应该 place into cache
 2. 当我们必须要 evict something 的时候，我们 evict whatever data was **Least Recently Used(LRU)**
 
 
 
-Example: 我们采用一个简化的模型. 这里 Cache 的容量一共就 2 lines，每个 line 由 1 bit status,  4 bit tag, 8 bit data 组成
+
+
+### example
+
+Example: 我们采用一个简化的模型. 这里 Cache 的容量一共就 2 entries，每个 line 由 1 bit status,  4 bit tag, 8 bit data 组成（没有 LRU bit，因为一共只有两个 entries，一个被访问了之后另外一个就是 LRU data)
+
+这里的 memory 是一个 bit addressable space, 一共有 16 lines, 
+
+地址是 0b0000 - 0b1111
+
+最大是 4 位，所以我们直接采用 tag = address，使用 4 位的 tag 来标记
+
+#### Cache overhead
+
+overhead 指的是 cache 中 non-data 的部分
+
+这里，我的 data 一共 2*8 bits =16 bits 16 bits 
+
+而 overhead: 
+
+1. tag 2 * 4 bits
+2. valid bits 2*1
+
+一共 10 bits 的 overhead
+
+
+
+
 
 每当 lw 时，我们首先遍历 cache，找不到的话：
 
@@ -295,39 +320,228 @@ $1 + 100*0.1 = 11.0$
 
 ## Lec 17 - Improving Caches     
 
-原本的 cache 模型：4 个 tag bit，表示这个 cache 中的 data 在 memory 的哪里。
+原本的 cache 模型：4 个 tag bit，直接使用地址作为 tag
 
-这里的 memory 就是 4-bit 的，一个 tag 对应的就是一条地址.
+问题：一共只容纳了两个数据，太容易 miss 了。例如：一个循环，里面有两个 local variable，于是每个 iteraion 之后，iterator 变量就被 cache 挤出去了。所以这个 cache 基本等于没有。实际上一个循环，local variable 有两个是很正常的。只能说明这个 cache 太弱了。
 
-问题：能够容纳的条数太少。假设我们一共有
 
-我们想要在能够寻址整个 memory 的同时，还能够尽量地多存储一些条数.
+
+我们想要在能够寻址整个 memory 的同时，还能够尽量地多存储一些数据放进 cache 里。
+
+办法：我们直接把 cache 做得更大点，容纳更多的数据。就这么简单，硬件szyd。
+
+
+
+但是我们发现，cache overhead 是一个很 under optimized 的东西：
+
+我们之前的简单 Memory，一共只有 16 格，地址有 4 bits. overhead 比数据本身要小。
+
+但是 what about 2^32, 2^64 个位置的 memory？我们如果延续使用把整个地址作为 tag 的策略，那么对于正常的有 2^32, 2^64 个位置的 memory 而言，有 32 位/ 64 位的 memory address，以 32 bit address 为例，每一条 overhead 里就至少有 32 位的 tag.
+
+再加上之后会有的 valid bit, dirty bit 以及 LRU bit 等等，overhead 会达到 40 bits 左右
+
+而每一条的数据只有 1 byte = 8 bit. 因为这是 byte addressable 的.
+
+这就导致了一条数据的 overhead 大小是数据本身的 5 倍. 于是整个 cache 就会非常臃肿。
+
+
+
+优化 cache 就是优化它的 overhead. 我们需要想办法减小 overhead.
+
+
+
+### Reducing overhead
+
+优化 overhead，对于我们目前的 (fully associative) cache，就是优化 tag 的大小. 
+
+
+
+我们目前的 tag 就是一个 address. 
 
 Idea: 
 
+对于一个完整的 address ，把前面几位作为 tag，一个 tag 对应多个数据，形成一个 block.
+
+**比如我们在 4-bit address 中，把前三位作为 tag**
+
+**于是 0000, 0001 都对应了 000 这个 tag. 一个 block 的 block size 变为 2 bytes：即，每次我们都把两个 bytes 的数据放进 cache** 
+
+<img src="note-assets-370/Screenshot 2024-11-19 at 15.18.17.png" alt="Screenshot 2024-11-19 at 15.18.17"  />
+
+
+
+我们自然得到计算一个数据的 tag 是多少的方法：
+$$
+tag(x) = \lfloor \frac{addr(x)}{\text{block size}} \rfloor
+$$
+比如数据在第 11 位，block size 是 2，于是 tag 是 5
+
+对于一个 address，我们称它后面 tag 外的位数为 **block offset.**
+
+比如 11 = 0b1011
+
+101 位 tag，最后一个 1 为 block offset
 
 
 
 
-问题有这么些：
 
-1. 3 个 tag bit 只能表示 8 个位置。
+### Spatial Locality
 
-   但是这里的 memory 有 16 个位置（现实中，2^32/64 个位置）；不足以表示完整的 memory
+试想我们使用这个策略，用 3 bits 的 tag 来寻址 4-bit 的 address，每次都 grab 1 bit 宽度内的所有数据，也就是这里的两条数据（2 bytes）
 
-2. 我们 cache 的 data 容量只有 2. 基本上很难 hit. 就算一个 loop 只有两个 local variable，也足以顶掉用来 iterate 的 变量 i，使得几乎无法 hit.
-
-我们想要：cache 能够储存尽量
+这个策略的意义其实比单纯的减小 cache 的 overhead 更多。因为它还很好地 **利用了spatial locality：因为我们每次 grab 的一个 block 中的数据都是连在一起的，通常程序中，连在一起的数据常常会先后紧接着被用到。比如数组的第一个元素和第二个元素。**
 
 
 
+这里举一个例子：这段 machine code
+
+<img src="note-assets-370/Screenshot 2024-11-19 at 15.41.22.png" alt="Screenshot 2024-11-19 at 15.41.22"  />
+
+![Screenshot 2024-11-19 at 15.52.43](note-assets-370/Screenshot 2024-11-19 at 15.52.43.png)
+
+我们 load 了 m[1], m[5] 之后又 load 了 m[4], m[0]：而 m[0], m[4] 已经在我们 grab m[1], m[5] 时连带着 grab 过了！
+
+提高了 hit/miss rate. 
 
 
 
 
 
+Other examples： 如果使用 2 bit tag：2 bit block offset，4 bytes block
+
+<img src="note-assets-370/Screenshot 2024-11-19 at 15.59.19.png" alt="Screenshot 2024-11-19 at 15.59.19" style="zoom:80%;" />
 
 
+
+### LRU with more than two entries
+
+目前为止我们的 cache 一共只有两个 entries，所以每次 access 其中一个，LRU 就是另外一个。
+
+但实际的 cache 的 entries 数量远多于两个。所以我们需要给每个 entry 添加 LRU bits 来判断哪个 entry 是 LRU entry.
+
+**一共有多少个 entry，LRU bits 的表示范围就要是多少。有 N 个 entries，那么 LRU bits 需要能够表示 0~N 的数字。于是就需要** 
+
+**$\lceil log_2(N) \rceil$ 个 LRU bits**
+
+比如：如果 cache 一共有 4 个 entries，就需要 $log_2(4) =2 $ 个 LRU bits！
+
+
+
+**LRU bits 的值从 0 到 N-1，0 表示这个entry 是 LRU 的，N-1 表示它是最 most recently used 的.**
+
+LRU bits 的更新算法如下：
+
+1. 一开始，entry 0, 1, 2, ..., N-1 的 LRU bits 分别赋予 0, 1, 2, ..., N-1 的值（这样一来，在 cache 第一次填满之前，被 grab 的 blocks 是从前到后放进去的）
+2. 每当一个 element X 被使用：给它赋予 N-1的 LRU bits 值，代表它是 most recently used 的
+3. 同时，遍历所有 entries，**对于所有 recent 值比先前的 X 高的 entries，把它们的 LRU bits 值 --**， 这样就保持了整个 cache 里始终只有一个 entry 的 LRU 值是 N-1.
+
+```c
+// when element i is used
+X = counter[i] 	// first record the LRU value for comparason
+counter[i] = N-1	// update LRU value of ele i as most recent
+for (j=1; j<N; j++) {
+  if(j!=i && counter[j]>X) counter[j]--;
+}
+```
+
+ex:
+
+<img src="note-assets-370/Screenshot 2024-11-19 at 16.40.05.png" alt="Screenshot 2024-11-19 at 16.40.05" style="zoom:80%;" />
+
+（显然，维持 temporal locality 所消耗的时间和 cache entries 的数量线性相关，N 越大越耗时间，但是总比 miss 了之后去 memory 里面找的时间消耗要少。）
+
+
+
+### store: write back/through
+
+我们之前都只考虑了 load word，但是和 memory 的交互还有 save word 这个行为
+
+当我们 store 一个 result 进入 memory 时，由于 cache 的存在，我们肯定要同步把 result 写进 cache 里。
+
+但是我们还要考虑这一问题：
+
+1. 如果它在 cache 中，我们是否同步地把它写进 cache 和 memory 里（write-through policy）；
+
+   还是只写进 cache，等到这个数据作为 LRU 被踢出来之后再放进 memory 里（**write-back policy**）？
+
+2. 如果它不在 cache 里，我们是否要把它放进 cache（**allocate-on-write policy**）；
+
+   还是不这么做？（no allocate-on-write policy）
+
+
+
+现在我们把 write word 也计入 hit/miss 里。allocate-on-write 即：在 cache 里找要 store 的数据的位置是否有，如果没有则是一个 miss，那么我们在 memory 里重新查询后，再把它放进 cache. 
+
+
+
+allocate-on-write 的性能优点是利用了 temporal locality：通常，刚刚 store 的 memory 不久之后也会用到。
+
+而 write-back policy，看起来也比 write through 要更加 efficient 一点（未必，见下面分析），**需要增加一个 bit 的 overhead：添加一个 dirty bit**
+
+
+
+
+
+#### write-through policy 
+
+一个 write-through + allocate-on-write 的例子
+
+1. load 了两个，miss
+
+2. stote 找 M[0]: 0 = 0b0000，tag = 000, offset = 0，在 cache 中找到了 tag 000，并 +0 获得了 data，把 R2 值传给它，并传给 memory.
+
+   Hit++
+
+<img src="note-assets-370/Screenshot 2024-11-19 at 17.41.36.png" alt="Screenshot 2024-11-19 at 17.41.36" style="zoom:80%;" />
+
+3. Store 找 M[5]: 5 = 0b0101，tag = 010，offset = 1，没有找到 tag，于是前往 memory 找，找到了之后首先改变 memory 中的值，然后把整个改完之后的 M[4], M[5] 作为 block 传给了 cache
+
+   Miss++
+
+<img src="note-assets-370/Screenshot 2024-11-19 at 17.45.47.png" alt="Screenshot 2024-11-19 at 17.45.47" style="zoom:80%;" />
+
+
+
+总计 memory references：每次 miss 都往 memory 读两个 bytes；每次 write 都往 memory 写一个 byte
+
+2x4 + 1x2 = 10 bytes
+
+
+
+
+
+#### write-back policy
+
+设置一个 dirty bit. 
+
+每次当一个 cache line 从 memory 被 allocate 进来的时候，就 reset 为 0；
+
+每当这个 cache line 被 reg store 进值的时候，我们更新 dirty bit 为 1，表示：它被写入了数据，但是数据并没有传回 memory，所以这个 cache line 已经不是进来的时候的数据了，是 "dirty" 的；
+
+当一个 cache line 作为 LRU 被 evict 的时候，我们检查它的 dirty bit：如果 dirty bit = 0，表示这个过程中我们没修改过它的值，可以放心直接把它踢掉；如果 dirty bit = 1，表示我们修改过它的值了，还要把它 send back 回 memory.
+
+
+
+
+
+write-back + allocate-on-write 的例子:
+
+<img src="note-assets-370/Screenshot 2024-11-19 at 17.55.01.png" alt="Screenshot 2024-11-19 at 17.55.01" style="zoom:80%;" />
+
+#### 性能对比
+
+总计 memory references：每次 miss 都往 memory 读两个 bytes；**每次 evict 一个 dirty line，都往 memory 写一个 block：这里是两个 bytes.**
+
+2x4 + 2x2 = 12 bytes
+
+对比刚才的 write through policy 只交互了 10 bytes. 
+
+**这个例子里我，write-back 的 memory reference 的总 bits 比 write-through 多，所以 write-through 在这里反而更加 efficient！**这是因为 write through 的每次交互都只是一个 bit，而 write back 则是一整个 block，因为 dirty bit 是一整个 block 的.
+
+
+
+**所以我们需要权衡考虑性能：write-back policy 适合当我们需要在短时间内对一个 particular address 多次写数据的场景。**
 
 
 

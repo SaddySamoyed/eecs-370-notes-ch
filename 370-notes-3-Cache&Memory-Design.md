@@ -449,7 +449,15 @@ ex:
 
 <img src="note-assets-370/Screenshot 2024-11-19 at 16.40.05.png" alt="Screenshot 2024-11-19 at 16.40.05" style="zoom:80%;" />
 
-（显然，维持 temporal locality 所消耗的时间和 cache entries 的数量线性相关，N 越大越耗时间，但是总比 miss 了之后去 memory 里面找的时间消耗要少。）
+#### Iteration is not actually costly
+
+**Note：这里看似我们需要遍历所有 cache entries，要花很多时间，但是其实不用。**
+
+**因为这是硬件。直接用 combinatorial logic，用 mux 一步解决就可以。所有判断都是 Parallel 的**
+
+**整个 cache 也是：看起来我们要搜索一个 entry 要花费时间，但是其实不花费时间，都是并行的搜索。不像是写程序是一个一个遍历要花 O(N) time. 所以这里的这个类比程序其实不完全是对应的。**
+
+
 
 
 
@@ -527,6 +535,8 @@ allocate-on-write 的性能优点是利用了 temporal locality：通常，刚�
 
 write-back + allocate-on-write 的例子:
 
+当 wrtie 数据进入 cache 时，我们不 send 它 back to mem 而是更新 dirty bit. 在它被 evict 的时候 send 一整个 block back to mem.
+
 <img src="note-assets-370/Screenshot 2024-11-19 at 17.55.01.png" alt="Screenshot 2024-11-19 at 17.55.01" style="zoom:80%;" />
 
 #### 性能对比
@@ -543,23 +553,97 @@ write-back + allocate-on-write 的例子:
 
 **所以我们需要权衡考虑性能：write-back policy 适合当我们需要在短时间内对一个 particular address 多次写数据的场景。**
 
+<img src="note-assets-370/Screenshot 2024-11-19 at 18.05.51.png" alt="Screenshot 2024-11-19 at 18.05.51"  />
+
 
 
 
 
 ## Lec 18 - Direct-mapped cache
 
+我们目前为止搭建的 cache 都是 **fully-associatie cache：**任意 block in memory 都可以 go to cache 的任何位置
+
+因为我们的实现方式是把 address 完整地分为 tag 和 offset. 这使得我们的寻址行为可以在整个 memory 中进行。
+
+
+
+代价是：在比较大的地址空间里，要么 overhead 过长，要么 block 太大导致 copy 的成本太大。
+
+比如 32 位地址空间，我们不得不把地址二分为 tag 和 offset
+
+如果我们使用 22 位的 tag，那么我们的 offset 大小就是 10 位，也就是说：一个 block 里面包含了 2^10 =1,024 个 bytes 的 data，把这些 data copy 过来的代价太大了
+
+
+
+### map a mem block to a cache line
+
+现在考虑一种新的策略：
+
+**direct-mapped cache，每个 block in memory 只能去 cache 里面固定的一行.**
+
+也就是说，这个 map 是一个从 memory 到 cache 的函数. 一个 mem block 被 map 到一个 cache line，属于这个 line 的 addressable space.
+
+
+
+Idea: 
+
+1. **对于 N 行的 cache，我们把 memory 跳着划分成 N 份：**
+2. **cache 的 lines 为 0, 1, ..., N-1；**
+3. **对于 memory，上一个 block 划分进 line n 的 addressable space，下一个 就划分进 line $n+1 \mod N$  的 addressable space.**
+
+<img src="note-assets-370/Screenshot 2024-11-19 at 19.50.28.png" alt="Screenshot 2024-11-19 at 19.50.28" style="zoom: 33%;" />
+
+### 划分一个 address 
+
+而具体的做法是：我们把一个 address 分为 tag, line index 和 block offset 三个部分
+
+line index 不需要称为 overhead，只要在 cache grab from memory 的时候 grab 特定的 memory blocks 就可以了
+
+line bits 的数量就是 $\log_2(\lceil \text{cache lines} \rceil)$
+
+
+
+ex：
+
+**m[12]，12 = 0b1100，其 tag 为 1，line index 为 0b10 = 2，block offset 为 0**
+
+**所以 12 属于 cache 的 line 2 的 addressable space，只能 go to cache line 2；而它在 cache line 2 中的 tag 为 1，因为 tag 0 的 block 是 m[4], m[5]；而它在自己的 block 中的位置是 0.**
 
 
 
 
 
+example:
+
+cache 有两行，于是 line bits = 1.
+
+所以还剩下 3 bits 分给 tag & offset
+
+既然 block size 为 2：offset bit = $\log_2(2) = 1$
+
+所以 tag bits = 3-1 = 2，每个 cache line 对应了 memory 中的四个 block.
+
+<img src="note-assets-370/Screenshot 2024-11-19 at 19.59.48.png" alt="Screenshot 2024-11-19 at 19.59.48" style="zoom:50%;" />
+
+1. load from M[1]，1 = 0b0001，line 为 0，tag = 0b00 = 0，查看 line 0 并没有发现这个 tag，于是 grab from M[0:1]，放进 cache[0] 里.
+
+<img src="note-assets-370/Screenshot 2024-11-19 at 20.10.55.png" alt="Screenshot 2024-11-19 at 20.10.55" style="zoom: 33%;" />
+
+2. Load from M[5]，5 = 0b0101，line 为 0，tag 为 0b01 = 1，查看 cache[0] 发现 tag 为 0 而不是 1，于是 grab from M[4:5]，放进 cache[0] 里.
+
+
+
+### Note: direct-mapped cache 不需要 LRU bits
+
+因为一个数据只对应一个 cache line！读到需要查看的 address 时，到它对应的 cache line 查看，tag 对就 hit，tag 不对就立刻替换.
 
 
 
 
 
+direct-mapped cache 很好地利用了 spatial locality. 虽然看起来它很容易 miss，但是同一块连续的 memory blocks 可以完全不冲突地放入 direct-mapped cache 中。这是因为连续的 blocks mapped to 的 cache line 不同，正好能够被整个 cache 容纳
 
+stack frame 的 growth 就是连续的，所以这很符合实际的程序设计需求。
 
 
 

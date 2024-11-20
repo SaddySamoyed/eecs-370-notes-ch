@@ -639,9 +639,9 @@ cache 有两行，于是 line bits = 1.
 
 
 
+direct-mapped cache 的优势是对于大的 address space 处理得更好，但是缺点是比起 fully-associative cache 显然更容易发生 conflicts.
 
-
-direct-mapped cache 很好地利用了 spatial locality. 虽然看起来它很容易 miss，但是同一块连续的 memory blocks 可以完全不冲突地放入 direct-mapped cache 中。这是因为连续的 blocks mapped to 的 cache line 不同，正好能够被整个 cache 容纳
+不过，direct-mapped cache 很好地利用了 spatial locality. 虽然看起来它很容易 miss，但是同一块连续的 memory blocks 可以完全不冲突地放入 direct-mapped cache 中。这是因为连续的 blocks mapped to 的 cache line 不同，正好能够被整个 cache 容纳
 
 stack frame 的 growth 就是连续的，所以这很符合实际的程序设计需求。
 
@@ -651,5 +651,102 @@ stack frame 的 growth 就是连续的，所以这很符合实际的程序设计
 
 ## Lec 19 - Set-Associative cache
 
+Fully associative: any block can go to any cache line
+
+Direct mapped: divide memory into regions, **map a region to a cache line**
+
+set associative: divide memory into (fewer) regions, **map a region to a set of cache lines**
 
 
+
+set associative 是 介于 fully associative 和 directed mapped 之间的 cache design，或者说 ：
+
+fully associative，directed mapped 都是特殊的 set associative cache.
+
+1. **fully associative 是整个 cache 都是同一个 set，整个 memory 都是同一个 region 的 set-associative cache**
+
+2. **directed mapped 是每个 cache line 都是一个 set （one way），整个 memory alternating region 的 cache**
+
+
+
+
+
+fully associative cache gives **best hit rate**，但是对于大的 address space 而言，需要的 entries 过于多，以至于速度慢下来。
+
+Direct-mapped cache 更能处理大的 address space，但是 hit rate 降低。
+
+而我们可以选择合适的 set 大小，建立 set associative cache，效果介于 fully associative 和 Direct-mapped 之间
+
+<img src="note-assets-370/Screenshot 2024-11-19 at 21.33.37.png" alt="Screenshot 2024-11-19 at 21.33.37" style="zoom:50%;" />
+
+
+
+一个 n-way set associative cache 的意思是：同一个 set 里有 n 个 entries. 
+
+一个 set 就相当于一个 fully-associative cache.
+
+计算一个 n-way 的 fully-associative cache 有几个 set: $\text{num of set} = \frac{\text{num of entries}}{n}$
+
+
+
+
+
+### How set associative cache divide address space
+
+一个有 m 个 sets 的 set associative cache 把 address space 分成 m 份
+
+和 direct-mapped cache 一样，我们把一个 address 分成三个部分：
+
+1. Tag bits
+2. set bits (line bits in direct-mapped，因为 direct-mapped 中一个 line 就是一个 set！)
+3. block offset
+
+
+
+block offset bits = $log_2(block size)$
+
+set bits = $log_2(sets)$
+
+tag bits: the rest
+
+
+
+比如这里：我们一共有两个 set，于是有$log_2(2) = 1$ 个 set bit
+
+block offset bits = $log_2(2) = 1$
+
+所以有 2 个 tag bits
+
+
+
+### example
+
+<img src="note-assets-370/Screenshot 2024-11-19 at 21.43.45.png" alt="Screenshot 2024-11-19 at 21.43.45" style="zoom:50%;" />
+
+1. load M[1]，1 = 0b0001，set 0，tag 0，offset 1
+
+   于是前往 set 0 寻找，并没有发现 tag 0
+
+   于是前往 memory 中 grab set 0 的 region 中的第 0 个 block.
+
+   
+
+<img src="note-assets-370/Screenshot 2024-11-19 at 21.46.41.png" alt="Screenshot 2024-11-19 at 21.46.41" style="zoom:50%;" />
+
+2. Load M[5]，5 = 0b0101，set 0，tag 1，offset 1
+
+   于是前往 set 0 寻找没有发现 tag 1
+
+   于是前往 memory 中 grab set 0 的 region 中的第 1 个 block.
+
+
+
+
+
+<img src="note-assets-370/Screenshot 2024-11-19 at 21.48.36.png" alt="Screenshot 2024-11-19 at 21.48.36" style="zoom:50%;" />
+
+3. Store 到 M[7]，7 = 0b0111，set 1，tag 1，offset 1
+
+   前往 set 1没发现 tag 1，于是前往 memory 中 grab set 1 的 region 中的第 1 个 block，放进 cache
+
+   并且注意：**这是个 store！于是我们在 cache 里修改这个 block 的 offset 1 的元素，并设置 dirty bit 为 1，以标记把它 evict 的时候要修改 memory.**

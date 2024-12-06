@@ -750,3 +750,30 @@ block offset bits = $log_2(2) = 1$
    前往 set 1没发现 tag 1，于是前往 memory 中 grab set 1 的 region 中的第 1 个 block，放进 cache
 
    并且注意：**这是个 store！于是我们在 cache 里修改这个 block 的 offset 1 的元素，并设置 dirty bit 为 1，以标记把它 evict 的时候要修改 memory.**
+
+
+
+
+
+
+
+## Lec 20 - Classifying Cache Miss
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

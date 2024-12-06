@@ -399,7 +399,7 @@ This finishes the construction of the stack frame.
 
 
 
-## Project 3
+## Project 3 - Pipelining
 
 我们把所有信息都封装在 state 里. state 等于当前运行的 clock cycle. 其中包含了 5 个 state regs.每个 state reg 都包含 state 的信息.
 
@@ -493,6 +493,88 @@ dest reg 只有那么几个东西有，即会改写：
 
 1. add/nor：regC
 2. lw：regB
+
+
+
+
+
+
+
+
+
+## Project 4 - Cache
+
+需要 implement  的东西: 
+
+1. cache.c: cache_init
+2. cache.c: cache_access
+3. simulator: main
+
+
+
+就这么简单。实际上就是把 cache 逻辑融合进 p1 的 simulator 里
+
+simulator main 需要调整的地方：
+
+首先 call cache_init
+
+然后 while(executing) 的循环里 call cache_access
+
+最后，循环结束处 call printStats()
+
+
+
+cache_access 蕴含 memory_access. 
+
+
+
+### Overview
+
+#### Cache 参数
+
+1. blocksPerSet, **一个 set 里有几个 blocks**
+
+   从 1 到 num_blocks
+
+   1：每个 Set 里有一个 block, 是direct-mappe，num_blocks：fully-asso，整个 cache 都是一个 set
+
+2. blockSizeInWords: **一个 block 里有几个 words**，表示一次 memory to cache grab 多少个 words
+
+3. numberOfSets: 有多少个 Sets
+
+所以整体的 number of words in cache 就是这三个东西的乘积
+
+当我们准备从 memory write to cache 的时候，我们首先定位它在哪个 set 里. 
+
+如果这个 set 还有空位就放进空位
+
+如果这个 set 没有空位就 replace LRU
+
+
+
+#### WB, allocate on write 策略
+
+使用 WB, allocate on write 策略.
+
+也就是每次 lw，我们会发现
+
+发现 cache miss 后，
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

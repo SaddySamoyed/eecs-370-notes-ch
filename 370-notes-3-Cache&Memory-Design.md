@@ -1132,5 +1132,81 @@ capacity 的实现就是：当 DRAM 用完的时候用 disk 作为 temporary spa
 
 ## Lec 22 - Multi-Level VM
 
+### Size of page table
+
+**physical page numbers 的数量取决于 physical memory 的实际大小**
+
+假设我们有 2^30B 的 Physical memory，4KB = 2^12B 的 page size
+
+那么 physical page num 的范围是 0 ~ 2^30-12^-1，需要 18 bits
+
+
+
+**page table 一个 entry 占 bits 数是 physical page num 的 bits 表示 + 其他功能性 bits，**比如 valid, dirty, read only 等，算它 6 bits，因而一个 entry 大小是 18+6 = 24 bits = 3B
+
+
+
+而 **page table 的 entry 数量就是 virtual pages num**
+
+假设是 32 位系统，那么就是 2^32-12^ = 2^20^ 个
+
+
+
+**page table size = entry 大小 * entry 数量** = 2^20^ * 3B 约等于 3MB
+
+看起来不算太大，但是如果我们改成 48，64 bit 的 system，就变成了 TB 级别。
+
+
+
+### Multi-Level Page Table
+
+我们想要减少 Page Table 的大小
+
+Idea：在 16 位的系统里，一个程序通常会使用大部分的 virtual memory space.
+
+在 32 位的系统里，一个程序会使用一部分 virtual memory space
+
+但是在 48，64 位的系统里，一个程序通常只有使用一小部分 virtual memory space，在非常极端的情况下才会使用大部分的 virtual memory space.
+
+没有用到的 table entry：全部都空着
+
+所以我们**把整个 page table 也 slice！每次当当前的 Page table 全部爆满的时候，我们才新建一个 chunk of table entries.**
+
+<img src="note-assets-370\{D5088AC8-52B3-4E84-B975-348E827EDE4C}.png" alt="{D5088AC8-52B3-4E84-B975-348E827EDE4C}" style="zoom:75%;" />
+
+
+
+#### Data Structure
+
+实现：我们用一个 1^st^ level 的 page table 来储存 addresses of 2^nd^ level page tables；我们只 allocate space for  2^nd^ level page tables in use.
+
+也就是说，**当当前分配的 page tables 都满了，我们就在 first level page table 上新建一个 entry，并给它分配一个新的 second level page table.**
+
+
+
+<img src="note-assets-370\{8CAECFBB-816E-423D-BCC9-B32F85BD7302}.png" alt="{8CAECFBB-816E-423D-BCC9-B32F85BD7302}" style="zoom:75%;" />
+
+我们只有要使用一个二级 page table 的时候才 allocate 它
+
+**在 program 的一开始，我们只 allocate 了一个 first level page table**
+
+**随着程序进行，我们需要的数据越来越多，每次需要新的 chunk of memory to hold data，我们就 allocate 一个 second level page table**
+
+
+
+因而，如果程序使用几乎整个 virtual address space，使用 multi-level page table 和使用 single-level page table，总共的 page table size 差不多，甚至 multi-level 更多一点（所有二级的 page table sizes 的和 等于同等的 single-level page table size，多出了一个一级 page table 的 size）
+
+但是如果程序只用了 virtual address space 的一小部分，那么 使用 multi-level page table  的 总共的 page table size 就会远小于使用 single-level page table 的情况
+
+
+
+#### Dividing an address
+
+我们把一个 address 分为 1st level offset，2nd level offset 和 page offset
+
+
+
+<img src="note-assets-370\{24EAFACC-35D0-45BB-A937-C8653F55A3BE}.png" alt="{24EAFACC-35D0-45BB-A937-C8653F55A3BE}" style="zoom:75%;" />
+
 
 

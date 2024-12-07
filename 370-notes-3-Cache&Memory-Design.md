@@ -755,7 +755,81 @@ block offset bits = $log_2(2) = 1$
 
 
 
+#### Practice problem
 
+Byte addressable 的空间
+
+32 bit address（note：我总是搞混的概念，，， 32bit 指的是一共有 2^32 次方个 address. 每个 address 都是一个 Byte，0000 0000 0000 0000 0000 0000 0000 0001 代表位置 1 上的这个 Byte，0000 0000 0000 0000 0000 0000 0000 0011 表示位置 2 上的这个 Byte，不是一个 address 上的东西的大小.）
+
+64 = 2^6 B  blocksize
+
+16KB = 2^(4+10) = 2^14 B cache
+
+因而 cache 里一共有  2^14-6^  =  2^8^ blocks，每个 block 有 16 行
+
+
+
+blockoffset: log_2 64 = 6 bits
+
+在所有的 cache 设计里，blockoffset 都是一样的，只取决于 block 大小. 表示一个当前的 address 是它所在 block 的第几个地址，因而 blockoffset 的 bit 数即用多少个 bit 的二进制数可以表示一个 Block 中能容纳的地址数量
+
+32 位 address 分为 tag, set index, offset，即 tag 
+
+
+
+The breakdown of the address:
+
+1. fully associative：
+
+   set index: 0 bit
+
+   tag: 26 bit
+
+   
+
+2. 4-way set asso cache：
+
+   set index: 2 bit
+
+   4-way：一个 Set 里面有 4 = 2^2^ 个 block！因而一共有 2^8-2^ 个 sets，也就是 2^6^ 个，需要用 6 bit表示
+
+   因而 set: 6 bitshttps://drive.google.com/drive/my-drive
+
+   因而 tag: 20 bits
+
+   
+
+3. direct-mapped cache：
+
+   一个 block 就是一个 Set.
+
+   一共有 2^8^ 个 Sets，也就是说 8 bits 的 set index
+
+   tag 有 32-6-8= 18 bits
+
+
+
+
+
+### More Sophiscated：Ln Cache, I/DCache
+
+cache 变大的代价就是变慢
+
+我们希望 cache 在足够大和足够快之间有一个平衡。
+
+因而实践中我们设计多个 caches，让紧急的 data 放在最近的 L1 cache，使用比较少的 data 放在 L2, L3 cache
+
+
+
+
+
+要把 cache 的设计放进我们的 Pipeline processor，我们需要把 Instruction 也拿出一个 cache 来放。
+
+否则，instructions 是从 memory 里取的，而 data 则由于有 lw, sw 可以和 cache 有交互，因而 cycle 时间不平衡
+
+对应的方案是：我们分 ICache 放 instructions，DCache 放 Data
+
+（具体：如果其中一个 Miss 了怎么办？如果两个都 miss 了怎么办？我们在这节课先不考虑
 
 ## Lec 20 - Classifying Cache Miss
 
@@ -765,13 +839,147 @@ block offset bits = $log_2(2) = 1$
 
 
 
+我们应该如何设计 cache 的大小和 associativity 等属性，从而改进一个 cache？要改进一个 cache 就是改进它的 miss rate。
+
+因而我们首先要对 miss 进行分类
+
+
+### 3 reasons for cache misses
+
+1. compulsory miss：never accessed this data before
+2. capacity miss：由于 cache 不够大导致的
+3. conflict miss：由于 restrictive associativity 导致的；cache 足够大但是一个 set 太小，导致了 conflict
 
 
 
+capacity miss 和 conflict miss 之间的界限比较模糊。
+
+我们这样定义：
+
+1. 如果 cache 比 memory 还大（或者说无限大）的情况下一个 miss 仍然会发生，就是 compulsory
+2. 如果改用 fully associative cache 就不会发生这个 Miss，就是 conflict；
+3. 否则就是 capacity
 
 
 
+#### Practice problem
 
+假设我们有 64B cache，16B blocks，2way，2sets
+
+（两个 blocks 在 set1，两个 blocks 在 Set2；每个 block 16 行）
+
+note：由于一个 block 16 行，我们可以用 hex 数来表示 address，这样的话第2 位 hex 不一样就说明不在一个 block 里）
+
+由于有两个 set，hex 地址第二位是 even number 则在 Set 0，第二位是 odd numer 则在 Set 1
+
+<img src="note-assets-370\{B2688A7D-51A4-4506-8984-EE2A3629E4F0}.png" alt="{B2688A7D-51A4-4506-8984-EE2A3629E4F0}" style="zoom:67%;" />
+
+
+
+<img src="note-assets-370\{B844CD78-220F-4DFA-8232-1030A18D0768}.png" alt="{B844CD78-220F-4DFA-8232-1030A18D0768}" style="zoom:75%;" />
+
+
+
+(note：set asso 的 hit，full asso 也可能会 miss！)
+
+### 减少 Miss 的 3 个对应方法
+
+减少 compulsory miss：增加 block size，单次 grab 的时候连带 grab 更多 blocks
+
+缺点：given cache size，增加 Block size 会减少 block numbers 从而减少灵活度
+
+
+
+减少 capacity miss：bigger cache
+
+缺点：会增加 latency
+
+
+
+减少 conflict miss：更大的 associativity
+
+缺点：会增加 latency 以及 Overhead（因为 ways 数量每翻倍，set 的数量都减半，block offset 不变，set bits 减少一个，tag 的 bits 数就增加一个
+
+tag bits 的增加就增加了 overhead，并且检索量翻了一倍，增加了 latency
+
+<img src="note-assets-370/Screenshot 2024-11-19 at 21.33.37.png" alt="Screenshot 2024-11-19 at 21.33.37" style="zoom: 33%;" />
+
+
+
+#### Cache size 的影响
+
+Cache size 的增加会增加 latency，也会增加 Hit rate
+
+太小的 cache size 的 hit rate 太低，会经常要更改 cache line，导致利用不好 temporal locality
+
+所以会呈边际递减。cache size 应该有一定大，但是不能过大，否则 miss latency 的增加就会超过 Hit rate 的增加带来的时间消耗的减少
+
+
+
+<img src="note-assets-370\{D3A7085A-4074-4AC0-98A7-36FA078BBD1D}.png" alt="{D3A7085A-4074-4AC0-98A7-36FA078BBD1D}" style="zoom:75%;" />
+
+
+
+#### Block size 的影响
+
+block size 代表对 spatial locality 的假定程度
+
+太小的 block 会利用不好 spatial locality，并且也会增加 tag overhead（block offset 减小，tag bits 增加
+
+小大的 block，在给定 cache 大小下，会减少 blocks 的总数量；首先，大 block 会增加 data transfer 一次的数量；其次，blocks 总数量的减少，对于多个比较远的 memory 位置上的频繁交替调用（比如函数调用），会导致频繁的 data transfer，增加了 Miss rate
+
+<img src="note-assets-370\{C2EDE13B-927B-41B9-BAF8-EB67A99EA7D6}.png" alt="{C2EDE13B-927B-41B9-BAF8-EB67A99EA7D6}" style="zoom:75%;" />
+
+
+#### Associaticity 的影响：
+
+associatity：多少个 Blocks 可以 map 到同一个 set？
+
+更大的 associativity 会减少 miss rate，会降低在不同 programs 中切换的 variation
+
+更小的 associativity，虽然 miss rate 会增加，但是 hit time 会减少：每次只需要搜寻更小的 space，只在一个set 中就可以了
+
+<img src="note-assets-370\{B04ABDF3-9683-4A7F-A1C8-583A04EAF0BD}.png" alt="{B04ABDF3-9683-4A7F-A1C8-583A04EAF0BD}" style="zoom: 67%;" />
+
+
+
+### Practice problems
+
+Pipeling with cache：
+
+remember that ：
+
+CPI = 1 + stall possibility * stall cycles
+
+一个 Clock cycle 如果 500Mhz: 2ns cycle time
+
+如果 cache miss 有 100 ns latency：等于 50 cycles
+
+
+
+判断 block size，associativity 以及集合数：
+
+block size 是最先看出的。并且一定是在最前面几行看出，因为后面的 Miss 可能有 associativity 的缘故，前面一定因为 Block size
+
+我们通过相近的 miss 来判断 block size 的上界，相近的 hit 来判断下界
+
+remember：必须是 2 的倍数
+
+
+
+associativity 其次看出。有一定难度
+
+N-way：一个 set 里面有 N 个 Blocks，容量是 N
+
+**direct map 首先要经历排除：direct map就是1 way，那么 cache 中一个 block 对应一个 set。**
+
+**因而，一个 address 过了 cache size 个 addresses 之后遇到和它相同 set 的 index**
+
+比如 cache size 512B，那么 0x310在过了 512B，也就是 2 * 16^2，到了 0x510 之后才是同一个 index
+
+如果同一个 index 上的元素连续 hit，那么就说明 #way > 1!
+
+其次，我们可以 Bound 住 #ways. 通过观察，同一个 Block 的元素，在 Hit 之后经历了多少个其他操作被踢了出来。它被放进去的时候是 LRU 值最高的，如果经历了两个指令就被提出来了（同 block 的元素 miss 了）那么一定在这两个指令之间被替换了，所以 block size <= 2.
 
 
 

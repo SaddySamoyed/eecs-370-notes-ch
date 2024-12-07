@@ -985,3 +985,15 @@ N-way：一个 set 里面有 N 个 Blocks，容量是 N
 
 
 
+
+
+## Lec 21 - Virtual Memory
+
+目前我们的讨论：假设所有 Programs 都对 memory 有 full, private access
+
+但是实际上：多个 programs 同时运行。试想：两个 Program 可能同时都想 write to 同一个 memory address
+
+
+
+
+

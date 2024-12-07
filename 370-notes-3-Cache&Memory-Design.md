@@ -993,7 +993,144 @@ N-way：一个 set 里面有 N 个 Blocks，容量是 N
 
 但是实际上：多个 programs 同时运行。试想：两个 Program 可能同时都想 write to 同一个 memory address
 
+并且，即便我们只有一个 Program 在运行。我们知道，既然我们的地址有 64 位，寻址空间有 2^64 个 bytes，我们可以搜寻其中任何一个 Byte 的地址。也就是说，一共有 2^24 TB 的储存单位在 memory 里？我们理应可以输入 2^64 个地址中的任何一个
 
+
+
+这显然是不可能的。实际上 modern system 对这两个问题给出了同一个答案，也就是 virtual memory：
+
+每个 program 都假定它有 full private access to memory，也就是能够寻址 0x0 to 0xFFFF....FFFF
+
+而我们的 hardware 和操作系统的 software 把这些虚拟地址 map 到 DRAM 以及 hard disk 上的具体的不同位置
+
+所谓 virtual 就是使用 a level of indirection
+
+
+
+Address translation 的工作在 software 端由一系列合称为 operating system 的 programs 来管理，它们**直接管理 hardware resources for all other running programs！**
+
+operating system 实现 address translation 是依靠一种叫做 **page table** 的 data structure.
+
+
+
+
+
+### Pages
+
+Memory 被划分为 fixed-size chunks 称为 pages（4KB for x86
+
+一个 virtual page 的大小和 physical page 的大小相同
+
+一个 virtual adress 被分为 page number 和 page offset 两部分，就像是 cache 中一个地址被分为 tag 和 block offset 一样
+
+<img src="note-assets-370\{E48DAA11-08D0-4B26-8DE1-C685714934E5}.png" alt="{E48DAA11-08D0-4B26-8DE1-C685714934E5}" style="zoom:75%;" />
+
+这样之后，翻译一个 virtual address into physical address 实际上就是把 virtual page number 映射到 physical page number（like hash，modular operation，由于 Physical page number 有限，virtual page number 比较多，这不是一个 injective map
+
+
+
+pages 的 boundary 上，相邻的 virtual address 可能会被 map 到 physical 距离很远的不同 pages 里，但是在同一个 page 里，contiguous 的 address 仍然保持 contiguous
+
+
+
+Question：why pages？为什么不直接 map 一个  virtual address to 一个 physical address 呢?
+
+Answer：This is actually just talking about page 的大小. 这个 Idea 等于 Have 1B page.
+
+pages 越小，那么数量范围就越大。
+
+比如 2^64 B 的 virtual memory，一个 page 4KB = 2^12 B，如果是 single level page table（之后我们会知道不可行，要使用 multi level 才实际），那么 pages 的范围是 0-2^52，所以 page table 有 2^52 这么大！memory 里根本放不下。如果一个 page 1B，那么 page table 的大小是 2^64，更加不可能
+
+并且，我们的 Page 大小也要足够，以运用 spatial locality of a program. 否则跨 page 找 data 的 cost 会很大
+
+
+
+### Page Table
+
+刚才说到，翻译一个 virtual address into physical address 实际上就是把 virtual page number 映射到 physical page number，which is not injective；具体实现这种映射的方法是 page table
+
+一个 page table 就是 virtual page # 到 physical page # 的映射规则
+
+每个 running process 都有自己的 own page table，maintained by OS
+
+
+
+page table 自身在 memory 中，OS 知道 page tables 的位置（所以我们假设 OS 运行正常，不用管怎么 access page table）
+
+
+
+Page table 就长这样：
+
+第 n 行表示第 n 个 virtual page，这行的 entry 是一个 valid bit 加上 n 对应的 physical page num
+
+我们有一个专门的 **page table reg** 指向 Page tables 的 beginning；可想而知，我们执行程序的时候，一个 process 有一个自己的 page table，因而 page table reg 会不停地切换多个 Process 的 page table 的 beginning！
+
+（recall：同一个 processor 的同一个 kernel 可以管理多个 process，这是通过 OS 把时间分为小的 slices，时间片用完后，操作系统会暂停当前进程，并切换到下一个进程，这种快速切换（通常以毫秒级或微秒级）给人的感觉是多个进程在“同时”运行）
+
+<img src="note-assets-370\{2119CEFB-D92F-4E7A-B881-323A27C6D0E7}.png" alt="{2119CEFB-D92F-4E7A-B881-323A27C6D0E7}" style="zoom:75%;" />
+
+
+
+ex:
+
+<img src="note-assets-370\{6EE58519-D51A-46F5-9FC7-E437F2685037}.png" alt="{6EE58519-D51A-46F5-9FC7-E437F2685037}" style="zoom:75%;" />
+
+4 KB page：2^12B，对应 12 bits 大小表示，也就是 3 hex
+
+于是一个地址的后三个 hex 位是 offset，前面是 page num
+
+
+
+
+
+### Extend VM to disk
+
+Virtual memory 的目标：
+
+1. Transparency：一个 Program 不用管其他 programs，可以调用整个 virtual memory；
+2. protection：一个 program 不能 access 其他 programs 的 data
+3. capacity：每个 program 都可以拥有比 DRAM size 更多的 data，意味着我们可以把 physical memory 扩充到 hard disk！
+
+
+
+Transparency，protection 的实现就是保持 Physical pages 不冲突，两个 program 不能有 map 到同一个 physical table 的 virtual table 就可以
+
+capacity 的实现就是：当 DRAM 用完的时候用 disk 作为 temporary space
+
+可想而知这很慢。
+
+所以这就解释了我们的电脑突然卡顿一下的原因：
+
+如果我们的电脑持续稳定地卡，说明cpu不行；但是如果经常突然卡一会儿，说明 memory 太小，因为卡一会儿的原因是 processes 太多，共计 pages 已经占满了整个 memory，于是 extend VM 的 physical 映射目标 to disk，用 disk 来存新的 table，由于 disk 比内存慢几百倍，这个时候存取数据就会非常慢；关掉一点程序就好了
+
+
+
+#### valid bit 的使用
+
+并且：notice，如果真的在 disk 和 reg 之间交互会非常慢，我们尽量只交互一次。即：每当要处理 hard disk 上的 page，我们把一个 memory 里的 page 和 hard disk 里的 page 调换。
+
+我们通过这种方式来告诉 hardware，这个 page 不在 memory 里而是在 disk 上：我们把 valid bit 设置为 0，并且后面跟上它 memory 里的位置
+
+**valid bit 为 0 有两个情况：情况 1，这个 virtual page 并不对应任何 physical page，还没有被 assign。这个情况，valid bit = 0 并且后面跟着的 page num 也是 0，是空的**
+
+**情况 2，这个 virtual page 对应的 physical page 在 disk 上。这个情况，valid bit = 0 并且后面跟着的 page num 不是 0，是具体的 disk 位置**
+
+检测到 physical page 在 disk 上后，我们执行这个流程：
+
+1. **Stop this process**: The current process is paused because it cannot proceed without the requested page.
+2. **Pick page to replace**: The system selects a page in physical memory to be replaced (using a page replacement algorithm, e.g., LRU or FIFO).
+3. **Write back data**: If the selected page is dirty (modified), its contents are written back to the disk.
+4. **Get referenced page**: The required page is loaded from disk into physical memory.
+5. **Update page table**: The page table entry is updated to reflect the new physical location of the page, and the valid bit is set to **1**.
+6. **Reschedule process**: The process that caused the page fault is resumed.
+
+通过这个流程，替换 disk 和 memory 上的一个 page。
+
+和 cache 里，sw 的 write back 很像
+
+
+
+## Lec 22 - Multi-Level VM
 
 
 

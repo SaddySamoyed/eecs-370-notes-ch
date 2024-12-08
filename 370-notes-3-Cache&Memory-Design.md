@@ -1210,3 +1210,87 @@ Idea：在 16 位的系统里，一个程序通常会使用大部分的 virtual 
 
 
 
+## Lec 23 - Speeding up VM
+
+### Table Look-aside Buffers (TLB)
+
+我们现在的 VM 是比较慢的。
+
+如果要 translate 一个 VM into 物理地址，对于 N-level page table，我们要在 getting the physical page number 前先 load N 次，然后我们再 access physical memory 以获得 data.
+
+这太慢了，所以我们借鉴 cache 的 Idea：
+
+TLB 是一个 cache of translations. 即：**存储常用的 virtual to physical address translation，使得常用的 pages 可以跳过检索 N 次 page table，而是只需要检索一次就可以。**
+
+由于 Page table 的总用量其实不大，并且 spatial locality 根据 4KB 上下的 page size 肯定利用好了， TLB 的 miss rate 非常低。通常是 1%
+
+一般设计 16~512 entries 的 TLB.
+
+<img src="note-assets-370\{5BEB761B-9E55-4BF5-B49A-746843754EC8}.png" alt="{5BEB761B-9E55-4BF5-B49A-746843754EC8}" style="zoom:75%;" />
+
+
+
+### Virtual Memory walkthrough
+
+Load program into memory:
+
+1. 让 OS 创建一个 new process
+2. 为这个 new process 创建一个 page table
+3. 标记这个 page table 里的所有 entries 都是 Invalid
+4. 让 PTE (page table ptr) 指向 program 的 disk image，即 exe 文件的头部所在的 physical page table
+
+<img src="note-assets-370\{4BC9C12D-EFBF-41D6-9C61-93FB63D6399B}.png" alt="{4BC9C12D-EFBF-41D6-9C61-93FB63D6399B}" style="zoom: 50%;" />
+
+5. OS 会把 Physical memory 的开头的 blocks 留给 page table，并且让 Page table 的前几个 entries 用来指向 disk 上的 virtual physical page，映射到 text 和 data section
+
+   这个行为在随后会造成 immediate page fault，从而在读到对应 page 上的 instructions 时，会顺势和 physical memory 交换，把 text 转移到 physical memory 里
+
+<img src="note-assets-370\{F3F7CCF6-DCD8-42A4-98AA-C268CA5569D4}.png" alt="{F3F7CCF6-DCD8-42A4-98AA-C268CA5569D4}" style="zoom:50%;" />
+
+Run the program:
+
+1. 第一个读到的指令在 virtual memory 0 的位置，我们已经在这里放上了会造成 page fault 的 disk pages 的引用。在读取 TLB 造成一个 miss 后，我们往 page table 上找，发现是 invalid 并且有值（说明在 disk 上），于是我们从它指向的 disk 位置，**取对应 page 放进 memory 上的一个 page，say P1**；同时我们**取消这个 Invalid entry，把它替换成刚才 disk page 放入的 P1 位置**；也就是我们把 Virtual 0x0000 翻译成了 Physical 0x1000
+
+   <img src="note-assets-370\{2DDE69F1-8165-43DD-95EF-244E6A0BC1DD}.png" alt="{2DDE69F1-8165-43DD-95EF-244E6A0BC1DD}" style="zoom:50%;" />
+
+2. 读取下一个指令，是 0x0004，往 TLB 里查找，hit！于是找到对应的 PPN P1，把它的 VPN 0 翻译成 PPN P1，把这个 VM 0x0004 对应到 PM 0x1004
+
+   <img src="note-assets-370\{B0E6EB87-FEA7-4FD7-A8AD-8A1E5D5CE8C3}.png" alt="{B0E6EB87-FEA7-4FD7-A8AD-8A1E5D5CE8C3}" style="zoom:50%;" />
+
+3. 读取下一个指令 0x7FFC，对应 Page Table 的 entry 7，这应该是 stack 的 initialization，因为 stack 在 VM 的最底部。
+
+   读 TLB，miss，于是找一块 Physical Page 用来对应它，say P2，于是把 Page Tabe 的 entry 7 更新为映射到 Physical P2
+
+   同时翻译这个地址：VM 0x7FFC 翻译为 PM 0x2FFC
+
+   <img src="note-assets-370\{C6177263-B144-4586-843B-26DAB0A75C9A}.png" alt="{C6177263-B144-4586-843B-26DAB0A75C9A}" style="zoom: 50%;" />
+
+4. 读取下一个指令 0x0008，trivial。
+
+   下一个指令 0x2134，是读取数据的指令，因为是在之前 initialization 的时候的 global data 应在的 page 上，这会和我们读取第一个 0x0000 的指令一样造成一个 page fault，于是我们从 disk 把 D1002 搬运到一个 Physical Page 上，say P3，再把 Page Table 里 Virtual Page 2 指向 P3，并完成翻译：0x2134 翻译为 0x3134
+
+   <img src="note-assets-370\{BBD2233C-7616-4946-BCC8-AD5338E2073D}.png" alt="{BBD2233C-7616-4946-BCC8-AD5338E2073D}" style="zoom:50%;" />
+
+   
+
+
+
+
+
+### Placing Caches in a VM System
+
+我们把 Cache 和 VM 结合起来，看整个 Memory Access 的流程
+
+Question：Cache 应该 access Physical address（VM translation 后）还是 Virtual Address（VM translation 前）？
+
+都可以，但是 Physical address（VM translation 前）更慢；Virtual Address（VM translation 后）更快
+
+
+
+#### Physically addressed cache
+
+<img src="note-assets-370\{1F1F1039-B2AE-4EA7-9CF6-7197FAFFA612}.png" alt="{1F1F1039-B2AE-4EA7-9CF6-7197FAFFA612}" style="zoom:50%;" />
+
+#### Virtually addressed cache
+
+<img src="note-assets-370\{2D605176-CEDD-4150-89BF-C6BDF05AADF7}.png" alt="{2D605176-CEDD-4150-89BF-C6BDF05AADF7}" style="zoom:50%;" />

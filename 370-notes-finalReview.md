@@ -104,25 +104,80 @@ mux: 0上1下
 
 
 
-Stage 1 Fetch: (1) index memory by PC address; (2) PC++; (3) 把 PC和 instruction 写入 IF/ID
+Stage 1 Fetch: 
 
-Stage 2 Decode: (1)
-
-
-
-Data Hazard
+(1) index memory by PC address; 
+(2) PC++，把 PC和 instruction 写入 IF/ID
 
 
 
+Stage 2 Decode: 提出 instruction 信息放入 ID/EX reg
+
+(1) 根据 regA, regB 在 regfile 里提取 regA, B value；
+(2) 提取 offsetfield (for beq,lw,sw)；
+(3) 提取 dest reg（16-18regB for lw, 0-2regC for add, nor）
+(4) 提取 opcode, 继承PC
+
+
+
+Stage 3 Execute: 计算: 
+
+(1) target = PC+offset ; 
+ALU = regA val + regB val/offset
+(for beq) equal = (regA val == regB val)
+
+(2) target, eq, ALU result 传入 Ex/Mem. valB(for sw). dest, op 继续继承入 Ex/Mem
+
+
+
+Stage 4 Mem Op
+
+(1) if beq equal, 传 target 入 IF/ID (即mux 选择target 而非 #1) 
+
+(2) sw: 直接把 valB 写入 ALU result address
+for lw: 在 data mem 中取出 ALU result address 上的 data （memData）
+把 ALU result. opcode, destReg(for lw, add, nor) 继承下来，放入 Mem/WB stage
+
+
+
+Stage 5: WriteBack:
+lw: 把 Mdata write back **to destReg**
+add,nor: 把 ALU result write back **to destReg**
+(remember that destReg is maintained)
 
 
 
 
 
+关键步骤：
+Stage 2 Decode 从 regFile 读取 regs
+Stage 3 Ex 对 regs, offset 进行运算
+Stage 4 传 target，sw write into memory
+Stage 5 Write back into Regfile(faster than Stage 2).
 
 
 
+#### 6.2 Data Hazard
 
+Stall: 
+
+Decode 结束后, 发现前 1/2 Stage 上有 dependency 则留在 ID. dependency 在前1, 插入 2 noops. Dependency 在前2，插入 1 noop. 等到 depency 在 Stage 5
+
+Forward:
+
+lw 需要 regA value；sw 需要 regB value；add, nor 需要 regA,B value；**需要位置都在 Stage 3.** 
+
+True Result 会被 add, nor, lw 的结果修改. add,nor true resule 存在 Stage 4 ALU result (Stage 5保留)；lw true result 存在 Stage 5 MData.
+
+因而 add, nor, lw 从 Stage 4,5 导回 Stage 3；lw 从 Stage 5 导回 Stage 3. 如果 lw 后面紧跟一个 dependent，不得不让它 decode 时 stall 一回合. 
+
+
+
+#### 6.3 Control Hazard
+
+beq: Stage 1 Fetch 就需要信息, Stage 4 结束才获得
+Stall 策略: beq 在 Stage 2,3,4, 分别向 Stage 1 插入一个 Noop
+Squash 策略: 如果 Stage 3 结束查看 Eq 发现预测错误, 就在 beq stage 4 向 Stage 2,3,4 分别插入一个 Noop，它导回后重新执行正确 beq 后的指令. 一共多执行了 3 cycles. 
 
 
 

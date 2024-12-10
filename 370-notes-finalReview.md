@@ -52,8 +52,35 @@
 
 
 
-
 ## 4. Digital Logic
+
+#### Float num
+
+mux: 0上1下
+
+表示 float num: 
+
+1. most sig 0表示+, 1表示-; 
+
+2. exponential bits 表示 数字乘以 2 的多少次方. 偏移量 -127
+
+   ex: 1000101 = 133, exponential = 133-127 = 6
+
+3. 后面 Bits 表示 1.xxxx 的 xxxx 
+
+   ex: 6.67，6 = 110, 67= 101...
+
+   0.67 × 2 = 1.34 → 1，余 0.34 
+
+   0.34 × 2 = 0.68 → 0，余 0.68 
+
+   0.68 × 2 = 1.36 → 1，余 0.36
+
+   因而得到 110.101....., = 1.10101 * 2^2
+
+   因而需要用 exponential bits 表示 129, 129-127=2
+
+   
 
 
 
@@ -77,6 +104,30 @@
 
 
 
+Stage 1 Fetch: (1) index memory by PC address; (2) PC++; (3) 把 PC和 instruction 写入 IF/ID
+
+Stage 2 Decode: (1)
+
+
+
+Data Hazard
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -85,7 +136,7 @@ Control Hazard:
 
 predict and speculate，错误停 3 cycles. 策略会记住某个指令的地址, 针对过去的回答 predict
 
-
+branch predictor: in lec, discussed direction predicter, predict take or not; 针对 functions 还有 target predicter, predict function return 的 target
 
 
 
@@ -98,6 +149,21 @@ predict and speculate，错误停 3 cycles. 策略会记住某个指令的地址
 
 
 ## 7. Cache
+
+speed: flip flop(reg) > SRAM(cache) > DRAM(memory) > disk
+
+计算 latency: aver latency = cache latency + mem latecy * missrate
+temporal locality: 变量在同一段时间会多次使用;
+
+spatial locality: 离得近的变量很可能接连被使用
+
+#### 7.1 write back & allocation
+
+overhead: non-data in a block / block size
+
+write back: sw 不直接 save 而是取所在 block, 如果期间被使用则更改则加上 dirty bit, 被 evict 时有 dirty bit 则放回 memory; write through m
+
+write back 的劣势: overhead +1 dirty bit; 在 spatial, temporal locality 不好的 program 上 memory access 反而多于 write through
 
 
 
@@ -117,7 +183,7 @@ Else: 如果 fully asso 仍 Miss: capacity；Else: Conflict
 
 
 
-## 8. VM
+## 8. VM (finished)
 
 address: virtual L1 index, virtual L2 index, page offset
 

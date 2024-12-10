@@ -885,13 +885,9 @@ Multicycle 强于 single cycle 仅在有某些指令花的时间相较于其他�
 
 execute 也就是运算. 我们的运算只有这几个情况：add, nor; lw/sw 算地址; beq 算 equal; pc+offset
 
-要做的事情：
-
 1. 运算要么是 对 regA content 和 regB content 要么是对 regA content 和 offset 进行. 我们把 regB content和 inst bits 中的 offset 加一个 mux，与 regA content 过一个 ALU.
 2. PC 和 inst bits 中的 offset 过一个 +
 3. PC 结果，regB content 和 ALU 结果以及 inst bits 传给 stage 4.
-
-
 
 <img src="note-assets-370/Screenshot 2024-10-30 at 12.44.59.png" alt="Screenshot 2024-10-30 at 12.44.59" style="zoom:50%;" />
 

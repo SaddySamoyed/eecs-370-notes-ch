@@ -7,14 +7,9 @@
 ## 1. Binary
 
 一个2's complement num 取负: nor 自身之后再 +1; 相对地, nor 自身的行为等价于取负后 -1.
-
 两个数的 nor 在二进制表示位宽足够的情况下不受位宽影响.
-
-
-
-
-
-
+`>>` 右移，绝对值变小
+sizeof() 表示 datatype 占的 B 而不是这个变量占的B
 
 
 
@@ -26,13 +21,7 @@
 
 ## 2. Assembly
 
-
-
-
-
-
-
-
+/
 
 
 
@@ -181,9 +170,11 @@ Squash 策略: 如果 Stage 3 结束查看 Eq 发现预测错误, 就在 beq sta
 
 
 
+#### 6.4 Performance
 
+同样的 program, 使用 detect and stall 和 code 中插入 noops 高有相同的 runtime，但是 CPI 比 code 中插入 noops 更高. 因为插入 noops 使得 instructions 数量变多；detect and forward runtime 和 CPI 都更低.
 
-
+program with few branches benefit from ICache due to spatial locality; many loops benefit from ICache due to temporal locality.
 
 
 
@@ -216,20 +207,19 @@ spatial locality: 离得近的变量很可能接连被使用
 
 overhead: non-data in a block / block size
 
-write back: sw 不直接 save 而是取所在 block, 如果期间被使用则更改则加上 dirty bit, 被 evict 时有 dirty bit 则放回 memory; write through m
+**write back**: 对于 sw, 如果 cache 里有则写入 cache 并修改 dirty, LRU 时送回 memory；**allocate on write**: sw 即便 cache 里没有，也从 memory 里拉过来. 
 
-write back 的劣势: overhead +1 dirty bit; 在 spatial, temporal locality 不好的 program 上 memory access 反而多于 write through
+write through: sw 当作普通指令, 不通过 cache 而是直接 access memory.
+
+write back, allocate on write 的劣势: overhead +1 dirty bit; 在 spatial, temporal locality 不好的 program 上 memory access 反而多于 write through
 
 
 
 
 
 tag, set index, offset. 
-
 如果 inf length fully asso 仍 Miss: compulsory
-
 Else: 如果 fully asso 仍 Miss: capacity；Else: Conflict
-
 **Note: 更换 inf length 和 fully asso 时 set index 无, tag 长度改变.**
 
 

@@ -224,6 +224,8 @@ Else: 如果 fully asso 仍 Miss: capacity；Else: Conflict
 
 
 
+note: 总 cycles = #inst + #stages-1.  ex:1000->1004
+
 
 
 
